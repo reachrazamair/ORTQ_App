@@ -7,16 +7,16 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import Ionicons from 'react-native-vector-icons/Ionicons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { supabase } from '../../lib/supabase';
+import { signupSchema } from '../../utils/schemas';
+import CustomInput from '../../components/common/CustomInput';
 
 type Props = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Signup'>;
@@ -27,13 +27,31 @@ export default function SignupScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [generalError, setGeneralError] = useState('');
 
   const handleSignup = async () => {
-    if (!email || !password || !name) {
-      Alert.alert('Error', 'Please fill in all fields');
+    // Reset errors
+    setErrors({});
+    setGeneralError('');
+
+    // Check for empty fields first (User preference)
+    if (!name || !email || !password) {
+      setGeneralError('Please fill in all fields');
       return;
     }
+
+    const result = signupSchema.safeParse({ name, email, password });
+
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {};
+      result.error.issues.forEach(issue => {
+        fieldErrors[issue.path[0] as string] = issue.message;
+      });
+      setErrors(fieldErrors);
+      return;
+    }
+
     setLoading(true);
     const { error } = await supabase.auth.signUp({
       email,
@@ -41,8 +59,9 @@ export default function SignupScreen({ navigation }: Props) {
       options: { data: { full_name: name } },
     });
     setLoading(false);
+
     if (error) {
-      Alert.alert('Signup Error', error.message);
+      setGeneralError(error.message);
     } else {
       Alert.alert(
         'Success',
@@ -72,57 +91,54 @@ export default function SignupScreen({ navigation }: Props) {
         </View>
 
         <View style={styles.form}>
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Full Name</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your name"
-              value={name}
-              onChangeText={setName}
-              placeholderTextColor="#9BA1A6"
-              editable={!loading}
-            />
-          </View>
+          <CustomInput
+            label="Full Name"
+            placeholder="Enter your name"
+            value={name}
+            onChangeText={text => {
+              setName(text);
+              if (errors.name) setErrors(prev => ({ ...prev, name: '' }));
+              setGeneralError('');
+            }}
+            error={errors.name}
+            editable={!loading}
+          />
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Email Address</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="name@example.com"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              placeholderTextColor="#9BA1A6"
-              editable={!loading}
-            />
-          </View>
+          <CustomInput
+            label="Email Address"
+            placeholder="name@example.com"
+            value={email}
+            onChangeText={text => {
+              setEmail(text);
+              if (errors.email) setErrors(prev => ({ ...prev, email: '' }));
+              setGeneralError('');
+            }}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            error={errors.email}
+            editable={!loading}
+          />
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.passwordContainer}>
-              <TextInput
-                style={styles.passwordInput}
-                placeholder="Create a password"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                placeholderTextColor="#9BA1A6"
-                editable={!loading}
-              />
-              <TouchableOpacity
-                style={styles.eyeButton}
-                onPress={() => setShowPassword(prev => !prev)}
-                disabled={loading}
-              >
-                <Ionicons
-                  name={showPassword ? 'eye-outline' : 'eye-off-outline'}
-                  size={20}
-                  color="#9BA1A6"
-                />
-              </TouchableOpacity>
+          <CustomInput
+            label="Password"
+            placeholder="Create a password"
+            value={password}
+            onChangeText={text => {
+              setPassword(text);
+              if (errors.password)
+                setErrors(prev => ({ ...prev, password: '' }));
+              setGeneralError('');
+            }}
+            isPassword
+            error={errors.password}
+            editable={!loading}
+          />
+
+          {generalError ? (
+            <View style={styles.generalErrorContainer}>
+              <Text style={styles.generalErrorText}>{generalError}</Text>
             </View>
-          </View>
+          ) : null}
 
           <TouchableOpacity
             style={[styles.signupButton, loading && styles.disabledButton]}
@@ -188,46 +204,18 @@ const styles = StyleSheet.create({
   form: {
     gap: 24,
   },
-  inputContainer: {
-    gap: 8,
+  generalErrorContainer: {
+    backgroundColor: '#FFF5F5',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFEBEB',
   },
-  label: {
-    fontFamily: Fonts.firaSansBold,
+  generalErrorText: {
+    color: Colors.error,
+    fontFamily: Fonts.firaSansRegular,
     fontSize: 14,
-    color: Colors.blueGrey,
-  },
-  input: {
-    height: 56,
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    fontFamily: Fonts.firaSansRegular,
-    borderWidth: 1,
-    borderColor: '#E9ECEF',
-    color: Colors.blueGrey,
-  },
-  passwordContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 56,
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E9ECEF',
-  },
-  passwordInput: {
-    flex: 1,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    fontFamily: Fonts.firaSansRegular,
-    color: Colors.blueGrey,
-  },
-  eyeButton: {
-    paddingHorizontal: 16,
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
+    textAlign: 'center',
   },
   signupButton: {
     height: 56,

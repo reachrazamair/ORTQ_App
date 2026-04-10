@@ -12,6 +12,8 @@ export const Colors = {
   orange: '#F27620',
   green: '#556B2F',
   blueGrey: '#293349',
+  error: '#FF3B30',
+  success: '#34C759',
 };
 
 export type ColorType = typeof Colors;

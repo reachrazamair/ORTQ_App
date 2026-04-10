@@ -7,7 +7,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -16,6 +15,8 @@ import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { supabase } from '../../lib/supabase';
+import { forgotPasswordSchema } from '../../utils/schemas';
+import CustomInput from '../../components/common/CustomInput';
 
 type Props = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'ForgotPassword'>;
@@ -24,17 +25,33 @@ type Props = {
 export default function ForgotPasswordScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [fieldError, setFieldError] = useState('');
 
   const handleResetRequest = async () => {
+    // Reset errors
+    setError('');
+    setFieldError('');
+
     if (!email) {
-      Alert.alert('Error', 'Please enter your email address');
+      setError('Please enter your email address');
       return;
     }
+
+    const result = forgotPasswordSchema.safeParse({ email });
+    if (!result.success) {
+      setFieldError(result.error.issues[0].message);
+      return;
+    }
+
     setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+      email,
+    );
     setLoading(false);
-    if (error) {
-      Alert.alert('Error', error.message);
+
+    if (resetError) {
+      setError(resetError.message);
     } else {
       Alert.alert(
         'Check your email',
@@ -67,19 +84,26 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
         </View>
 
         <View style={styles.form}>
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Email Address</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="name@example.com"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              placeholderTextColor="#9BA1A6"
-              editable={!loading}
-            />
-          </View>
+          <CustomInput
+            label="Email Address"
+            placeholder="name@example.com"
+            value={email}
+            onChangeText={text => {
+              setEmail(text);
+              setFieldError('');
+              setError('');
+            }}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            error={fieldError}
+            editable={!loading}
+          />
+
+          {error ? (
+            <View style={styles.generalErrorContainer}>
+              <Text style={styles.generalErrorText}>{error}</Text>
+            </View>
+          ) : null}
 
           <TouchableOpacity
             style={[styles.resetButton, loading && styles.disabledButton]}
@@ -145,24 +169,18 @@ const styles = StyleSheet.create({
   form: {
     gap: 24,
   },
-  inputContainer: {
-    gap: 8,
-  },
-  label: {
-    fontFamily: Fonts.firaSansBold,
-    fontSize: 14,
-    color: Colors.blueGrey,
-  },
-  input: {
-    height: 56,
-    backgroundColor: '#F8F9FA',
+  generalErrorContainer: {
+    backgroundColor: '#FFF5F5',
+    padding: 12,
     borderRadius: 12,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    fontFamily: Fonts.firaSansRegular,
     borderWidth: 1,
-    borderColor: '#E9ECEF',
-    color: Colors.blueGrey,
+    borderColor: '#FFEBEB',
+  },
+  generalErrorText: {
+    color: Colors.error,
+    fontFamily: Fonts.firaSansRegular,
+    fontSize: 14,
+    textAlign: 'center',
   },
   resetButton: {
     height: 56,
