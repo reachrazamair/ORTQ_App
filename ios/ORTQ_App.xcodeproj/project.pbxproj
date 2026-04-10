@@ -1,0 +1,608 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 54;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0C80B921A6F3F58F76C31292 /* libPods-ORTQ_App.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5DCACB8F33CDC322A6C60F78 /* libPods-ORTQ_App.a */; };
+		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
+		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		BCAEB0DF19B44C17AA51AE51 /* gotham_medium.otf in Resources */ = {isa = PBXBuildFile; fileRef = 72564EF69CD74646AC9DBF9F /* gotham_medium.otf */; };
+		5307DCB081254AC9B4108180 /* gotham_black.otf in Resources */ = {isa = PBXBuildFile; fileRef = B3582A7735144D14BB6279AC /* gotham_black.otf */; };
+		73AD160FB6F246F6AB3906A5 /* gotham_extra_light.otf in Resources */ = {isa = PBXBuildFile; fileRef = 85BE5F47CFEF45498EAE3ECD /* gotham_extra_light.otf */; };
+		6134DBE2D46C40E4B096791D /* gotham_light.otf in Resources */ = {isa = PBXBuildFile; fileRef = A05E8AB92834453587138BB0 /* gotham_light.otf */; };
+		2D9C66A165FB4A70A0C60A10 /* gotham_ultra.otf in Resources */ = {isa = PBXBuildFile; fileRef = 5A9E6EDEF5594569ACE3E956 /* gotham_ultra.otf */; };
+		C5D13DB6895A4253BEF9B7E9 /* gotham_italic.otf in Resources */ = {isa = PBXBuildFile; fileRef = 2D41FAD954DC4C19BA0AD482 /* gotham_italic.otf */; };
+		50BB86DF6928435AA231C0BF /* gotham_thin_italic.otf in Resources */ = {isa = PBXBuildFile; fileRef = 050167000A2E46D5A16BDC01 /* gotham_thin_italic.otf */; };
+		1EF9F925B0B94CBE93DE33DD /* gotham_italic_bold.otf in Resources */ = {isa = PBXBuildFile; fileRef = 86C1073EDD334F3C80FBE653 /* gotham_italic_bold.otf */; };
+		40BCF41AA56D47F6B356F4D7 /* gotham_bold.otf in Resources */ = {isa = PBXBuildFile; fileRef = BC70C334F9524E009C5BE46B /* gotham_bold.otf */; };
+		CB04F30766AD42918AAEBAE3 /* gotham_regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = 281E22DE3E09408E8F01AA66 /* gotham_regular.otf */; };
+		CCF5B2CB727F46148B0CE79A /* gotham_book.otf in Resources */ = {isa = PBXBuildFile; fileRef = F60A39AC7B514CB6894BF26E /* gotham_book.otf */; };
+		A76694B90D4F467D817BB0DA /* fira_sans_medium_italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = BDB52C93691542A38C4BFF38 /* fira_sans_medium_italic.ttf */; };
+		FBE1C918607A4F659F997400 /* fira_sans_extra_light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3B2BB30B6B6D4717859E374C /* fira_sans_extra_light.ttf */; };
+		AB212B393FD54AB7BC77C78D /* fira_sans_semi_bold_italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 5DD0B0226D17446EAE4BE954 /* fira_sans_semi_bold_italic.ttf */; };
+		501E76D795B34F069ECB379D /* fira_sans_thin_italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B6F45D2C62B048699073DFF2 /* fira_sans_thin_italic.ttf */; };
+		996FDEB8579347FEB5977171 /* fira_sans_regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = E69200166A2F425DAAAE6820 /* fira_sans_regular.ttf */; };
+		32400CA75ABD4FA38D4C304B /* fira_sans_light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D97F269A7F2F45439F9B3485 /* fira_sans_light.ttf */; };
+		A5546379D1D34AC58F19577F /* fira_sans_italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = E565A71D2B2B4942AAFD1813 /* fira_sans_italic.ttf */; };
+		963042F0BE2F418587783B67 /* fira_sans_black_italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 5DED9ED055CA4B26909F4A8F /* fira_sans_black_italic.ttf */; };
+		7486664E208744F8B4F3EF5E /* fira_sans_bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 20A2FE9EE0F6400D8B8188C1 /* fira_sans_bold.ttf */; };
+		A42B4DE2DBC1462A803CA65B /* fira_sans_extra_bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = FF9AB6DA770646DA8B14247B /* fira_sans_extra_bold.ttf */; };
+		ED0B38B97FE546C8878E544A /* fira_sans_bold_italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 321BDA6299E8470592455EB0 /* fira_sans_bold_italic.ttf */; };
+		22D76B6C3F054485AF92C9D6 /* fira_sans_semi_bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 789D90557BF244AD9E75DF1A /* fira_sans_semi_bold.ttf */; };
+		409D21BA043F412CB497C5A5 /* fira_sans_extra_light_italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 73D19297408F4F6791436918 /* fira_sans_extra_light_italic.ttf */; };
+		392F80719B8241D8A0B58CB6 /* fira_sans_thin.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 9169081BAC0A49F681DEE023 /* fira_sans_thin.ttf */; };
+		B023D6902ADC4D53BBEB6CCD /* gotham_bold_italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 7E4071DC9E014E25A1DC9874 /* gotham_bold_italic.ttf */; };
+		F857BEB76E594D02814EDE63 /* fira_sans_extra_bold_italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 4141EEE385FD4E9984A54B34 /* fira_sans_extra_bold_italic.ttf */; };
+		FD2B4D4BE6524B7E8108150E /* fira_sans_black.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 2F0F8C90923C41BB821424FE /* fira_sans_black.ttf */; };
+		AB5D4EB5A8154D28870C70BE /* fira_sans_light_italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 2E078F77EE624954976D00B0 /* fira_sans_light_italic.ttf */; };
+		77918D1F18CC4986883DBCA8 /* fira_sans_medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 2DE9D26925034AEF98B8B103 /* fira_sans_medium.ttf */; };
+		CA37E03DB495405F997D943F /* fira_sans_license.txt in Resources */ = {isa = PBXBuildFile; fileRef = C617A2A1485E4D9EB2CEB51F /* fira_sans_license.txt */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		13B07F961A680F5B00A75B9A /* ORTQ_App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ORTQ_App.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = ORTQ_App/Images.xcassets; sourceTree = "<group>"; };
+		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = ORTQ_App/Info.plist; sourceTree = "<group>"; };
+		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = ORTQ_App/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		3B4392A12AC88292D35C810B /* Pods-ORTQ_App.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ORTQ_App.debug.xcconfig"; path = "Target Support Files/Pods-ORTQ_App/Pods-ORTQ_App.debug.xcconfig"; sourceTree = "<group>"; };
+		5709B34CF0A7D63546082F79 /* Pods-ORTQ_App.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ORTQ_App.release.xcconfig"; path = "Target Support Files/Pods-ORTQ_App/Pods-ORTQ_App.release.xcconfig"; sourceTree = "<group>"; };
+		5DCACB8F33CDC322A6C60F78 /* libPods-ORTQ_App.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-ORTQ_App.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = ORTQ_App/AppDelegate.swift; sourceTree = "<group>"; };
+		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = ORTQ_App/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		72564EF69CD74646AC9DBF9F /* gotham_medium.otf */ = {isa = PBXFileReference; name = "gotham_medium.otf"; path = "../assets/fonts/gotham_medium.otf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		B3582A7735144D14BB6279AC /* gotham_black.otf */ = {isa = PBXFileReference; name = "gotham_black.otf"; path = "../assets/fonts/gotham_black.otf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		85BE5F47CFEF45498EAE3ECD /* gotham_extra_light.otf */ = {isa = PBXFileReference; name = "gotham_extra_light.otf"; path = "../assets/fonts/gotham_extra_light.otf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		A05E8AB92834453587138BB0 /* gotham_light.otf */ = {isa = PBXFileReference; name = "gotham_light.otf"; path = "../assets/fonts/gotham_light.otf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		5A9E6EDEF5594569ACE3E956 /* gotham_ultra.otf */ = {isa = PBXFileReference; name = "gotham_ultra.otf"; path = "../assets/fonts/gotham_ultra.otf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		2D41FAD954DC4C19BA0AD482 /* gotham_italic.otf */ = {isa = PBXFileReference; name = "gotham_italic.otf"; path = "../assets/fonts/gotham_italic.otf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		050167000A2E46D5A16BDC01 /* gotham_thin_italic.otf */ = {isa = PBXFileReference; name = "gotham_thin_italic.otf"; path = "../assets/fonts/gotham_thin_italic.otf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		86C1073EDD334F3C80FBE653 /* gotham_italic_bold.otf */ = {isa = PBXFileReference; name = "gotham_italic_bold.otf"; path = "../assets/fonts/gotham_italic_bold.otf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		BC70C334F9524E009C5BE46B /* gotham_bold.otf */ = {isa = PBXFileReference; name = "gotham_bold.otf"; path = "../assets/fonts/gotham_bold.otf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		281E22DE3E09408E8F01AA66 /* gotham_regular.otf */ = {isa = PBXFileReference; name = "gotham_regular.otf"; path = "../assets/fonts/gotham_regular.otf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		F60A39AC7B514CB6894BF26E /* gotham_book.otf */ = {isa = PBXFileReference; name = "gotham_book.otf"; path = "../assets/fonts/gotham_book.otf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		BDB52C93691542A38C4BFF38 /* fira_sans_medium_italic.ttf */ = {isa = PBXFileReference; name = "fira_sans_medium_italic.ttf"; path = "../assets/fonts/fira_sans_medium_italic.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		3B2BB30B6B6D4717859E374C /* fira_sans_extra_light.ttf */ = {isa = PBXFileReference; name = "fira_sans_extra_light.ttf"; path = "../assets/fonts/fira_sans_extra_light.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		5DD0B0226D17446EAE4BE954 /* fira_sans_semi_bold_italic.ttf */ = {isa = PBXFileReference; name = "fira_sans_semi_bold_italic.ttf"; path = "../assets/fonts/fira_sans_semi_bold_italic.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		B6F45D2C62B048699073DFF2 /* fira_sans_thin_italic.ttf */ = {isa = PBXFileReference; name = "fira_sans_thin_italic.ttf"; path = "../assets/fonts/fira_sans_thin_italic.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		E69200166A2F425DAAAE6820 /* fira_sans_regular.ttf */ = {isa = PBXFileReference; name = "fira_sans_regular.ttf"; path = "../assets/fonts/fira_sans_regular.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		D97F269A7F2F45439F9B3485 /* fira_sans_light.ttf */ = {isa = PBXFileReference; name = "fira_sans_light.ttf"; path = "../assets/fonts/fira_sans_light.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		E565A71D2B2B4942AAFD1813 /* fira_sans_italic.ttf */ = {isa = PBXFileReference; name = "fira_sans_italic.ttf"; path = "../assets/fonts/fira_sans_italic.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		5DED9ED055CA4B26909F4A8F /* fira_sans_black_italic.ttf */ = {isa = PBXFileReference; name = "fira_sans_black_italic.ttf"; path = "../assets/fonts/fira_sans_black_italic.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		20A2FE9EE0F6400D8B8188C1 /* fira_sans_bold.ttf */ = {isa = PBXFileReference; name = "fira_sans_bold.ttf"; path = "../assets/fonts/fira_sans_bold.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		FF9AB6DA770646DA8B14247B /* fira_sans_extra_bold.ttf */ = {isa = PBXFileReference; name = "fira_sans_extra_bold.ttf"; path = "../assets/fonts/fira_sans_extra_bold.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		321BDA6299E8470592455EB0 /* fira_sans_bold_italic.ttf */ = {isa = PBXFileReference; name = "fira_sans_bold_italic.ttf"; path = "../assets/fonts/fira_sans_bold_italic.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		789D90557BF244AD9E75DF1A /* fira_sans_semi_bold.ttf */ = {isa = PBXFileReference; name = "fira_sans_semi_bold.ttf"; path = "../assets/fonts/fira_sans_semi_bold.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		73D19297408F4F6791436918 /* fira_sans_extra_light_italic.ttf */ = {isa = PBXFileReference; name = "fira_sans_extra_light_italic.ttf"; path = "../assets/fonts/fira_sans_extra_light_italic.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		9169081BAC0A49F681DEE023 /* fira_sans_thin.ttf */ = {isa = PBXFileReference; name = "fira_sans_thin.ttf"; path = "../assets/fonts/fira_sans_thin.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		7E4071DC9E014E25A1DC9874 /* gotham_bold_italic.ttf */ = {isa = PBXFileReference; name = "gotham_bold_italic.ttf"; path = "../assets/fonts/gotham_bold_italic.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		4141EEE385FD4E9984A54B34 /* fira_sans_extra_bold_italic.ttf */ = {isa = PBXFileReference; name = "fira_sans_extra_bold_italic.ttf"; path = "../assets/fonts/fira_sans_extra_bold_italic.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		2F0F8C90923C41BB821424FE /* fira_sans_black.ttf */ = {isa = PBXFileReference; name = "fira_sans_black.ttf"; path = "../assets/fonts/fira_sans_black.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		2E078F77EE624954976D00B0 /* fira_sans_light_italic.ttf */ = {isa = PBXFileReference; name = "fira_sans_light_italic.ttf"; path = "../assets/fonts/fira_sans_light_italic.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		2DE9D26925034AEF98B8B103 /* fira_sans_medium.ttf */ = {isa = PBXFileReference; name = "fira_sans_medium.ttf"; path = "../assets/fonts/fira_sans_medium.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		C617A2A1485E4D9EB2CEB51F /* fira_sans_license.txt */ = {isa = PBXFileReference; name = "fira_sans_license.txt"; path = "../assets/fonts/fira_sans_license.txt"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		13B07F8C1A680F5B00A75B9A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0C80B921A6F3F58F76C31292 /* libPods-ORTQ_App.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		13B07FAE1A68108700A75B9A /* ORTQ_App */ = {
+			isa = PBXGroup;
+			children = (
+				13B07FB51A68108700A75B9A /* Images.xcassets */,
+				761780EC2CA45674006654EE /* AppDelegate.swift */,
+				13B07FB61A68108700A75B9A /* Info.plist */,
+				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
+				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
+			);
+			name = ORTQ_App;
+			sourceTree = "<group>";
+		};
+		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
+				5DCACB8F33CDC322A6C60F78 /* libPods-ORTQ_App.a */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Libraries;
+			sourceTree = "<group>";
+		};
+		83CBB9F61A601CBA00E9B192 = {
+			isa = PBXGroup;
+			children = (
+				13B07FAE1A68108700A75B9A /* ORTQ_App */,
+				832341AE1AAA6A7D00B99B32 /* Libraries */,
+				83CBBA001A601CBA00E9B192 /* Products */,
+				2D16E6871FA4F8E400B85C8A /* Frameworks */,
+				BBD78D7AC51CEA395F1C20DB /* Pods */,
+				D2A5E4FD63F54628B8326115 /* Resources */,
+			);
+			indentWidth = 2;
+			sourceTree = "<group>";
+			tabWidth = 2;
+			usesTabs = 0;
+		};
+		83CBBA001A601CBA00E9B192 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				13B07F961A680F5B00A75B9A /* ORTQ_App.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		BBD78D7AC51CEA395F1C20DB /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				3B4392A12AC88292D35C810B /* Pods-ORTQ_App.debug.xcconfig */,
+				5709B34CF0A7D63546082F79 /* Pods-ORTQ_App.release.xcconfig */,
+			);
+			path = Pods;
+			sourceTree = "<group>";
+		};
+		D2A5E4FD63F54628B8326115 /* Resources */ = {
+			isa = "PBXGroup";
+			children = (
+				72564EF69CD74646AC9DBF9F /* gotham_medium.otf */,
+				B3582A7735144D14BB6279AC /* gotham_black.otf */,
+				85BE5F47CFEF45498EAE3ECD /* gotham_extra_light.otf */,
+				A05E8AB92834453587138BB0 /* gotham_light.otf */,
+				5A9E6EDEF5594569ACE3E956 /* gotham_ultra.otf */,
+				2D41FAD954DC4C19BA0AD482 /* gotham_italic.otf */,
+				050167000A2E46D5A16BDC01 /* gotham_thin_italic.otf */,
+				86C1073EDD334F3C80FBE653 /* gotham_italic_bold.otf */,
+				BC70C334F9524E009C5BE46B /* gotham_bold.otf */,
+				281E22DE3E09408E8F01AA66 /* gotham_regular.otf */,
+				F60A39AC7B514CB6894BF26E /* gotham_book.otf */,
+				BDB52C93691542A38C4BFF38 /* fira_sans_medium_italic.ttf */,
+				3B2BB30B6B6D4717859E374C /* fira_sans_extra_light.ttf */,
+				5DD0B0226D17446EAE4BE954 /* fira_sans_semi_bold_italic.ttf */,
+				B6F45D2C62B048699073DFF2 /* fira_sans_thin_italic.ttf */,
+				E69200166A2F425DAAAE6820 /* fira_sans_regular.ttf */,
+				D97F269A7F2F45439F9B3485 /* fira_sans_light.ttf */,
+				E565A71D2B2B4942AAFD1813 /* fira_sans_italic.ttf */,
+				5DED9ED055CA4B26909F4A8F /* fira_sans_black_italic.ttf */,
+				20A2FE9EE0F6400D8B8188C1 /* fira_sans_bold.ttf */,
+				FF9AB6DA770646DA8B14247B /* fira_sans_extra_bold.ttf */,
+				321BDA6299E8470592455EB0 /* fira_sans_bold_italic.ttf */,
+				789D90557BF244AD9E75DF1A /* fira_sans_semi_bold.ttf */,
+				73D19297408F4F6791436918 /* fira_sans_extra_light_italic.ttf */,
+				9169081BAC0A49F681DEE023 /* fira_sans_thin.ttf */,
+				7E4071DC9E014E25A1DC9874 /* gotham_bold_italic.ttf */,
+				4141EEE385FD4E9984A54B34 /* fira_sans_extra_bold_italic.ttf */,
+				2F0F8C90923C41BB821424FE /* fira_sans_black.ttf */,
+				2E078F77EE624954976D00B0 /* fira_sans_light_italic.ttf */,
+				2DE9D26925034AEF98B8B103 /* fira_sans_medium.ttf */,
+				C617A2A1485E4D9EB2CEB51F /* fira_sans_license.txt */,
+			);
+			name = Resources;
+			sourceTree = "<group>";
+			path = "";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		13B07F861A680F5B00A75B9A /* ORTQ_App */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "ORTQ_App" */;
+			buildPhases = (
+				C38B50BA6285516D6DCD4F65 /* [CP] Check Pods Manifest.lock */,
+				13B07F871A680F5B00A75B9A /* Sources */,
+				13B07F8C1A680F5B00A75B9A /* Frameworks */,
+				13B07F8E1A680F5B00A75B9A /* Resources */,
+				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
+				00EEFC60759A1932668264C0 /* [CP] Embed Pods Frameworks */,
+				E235C05ADACE081382539298 /* [CP] Copy Pods Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ORTQ_App;
+			productName = ORTQ_App;
+			productReference = 13B07F961A680F5B00A75B9A /* ORTQ_App.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		83CBB9F71A601CBA00E9B192 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 1210;
+				TargetAttributes = {
+					13B07F861A680F5B00A75B9A = {
+						LastSwiftMigration = 1120;
+					};
+				};
+			};
+			buildConfigurationList = 83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "ORTQ_App" */;
+			compatibilityVersion = "Xcode 12.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 83CBB9F61A601CBA00E9B192;
+			productRefGroup = 83CBBA001A601CBA00E9B192 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				13B07F861A680F5B00A75B9A /* ORTQ_App */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		13B07F8E1A680F5B00A75B9A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
+				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
+				BCAEB0DF19B44C17AA51AE51 /* gotham_medium.otf in Resources */,
+				5307DCB081254AC9B4108180 /* gotham_black.otf in Resources */,
+				73AD160FB6F246F6AB3906A5 /* gotham_extra_light.otf in Resources */,
+				6134DBE2D46C40E4B096791D /* gotham_light.otf in Resources */,
+				2D9C66A165FB4A70A0C60A10 /* gotham_ultra.otf in Resources */,
+				C5D13DB6895A4253BEF9B7E9 /* gotham_italic.otf in Resources */,
+				50BB86DF6928435AA231C0BF /* gotham_thin_italic.otf in Resources */,
+				1EF9F925B0B94CBE93DE33DD /* gotham_italic_bold.otf in Resources */,
+				40BCF41AA56D47F6B356F4D7 /* gotham_bold.otf in Resources */,
+				CB04F30766AD42918AAEBAE3 /* gotham_regular.otf in Resources */,
+				CCF5B2CB727F46148B0CE79A /* gotham_book.otf in Resources */,
+				A76694B90D4F467D817BB0DA /* fira_sans_medium_italic.ttf in Resources */,
+				FBE1C918607A4F659F997400 /* fira_sans_extra_light.ttf in Resources */,
+				AB212B393FD54AB7BC77C78D /* fira_sans_semi_bold_italic.ttf in Resources */,
+				501E76D795B34F069ECB379D /* fira_sans_thin_italic.ttf in Resources */,
+				996FDEB8579347FEB5977171 /* fira_sans_regular.ttf in Resources */,
+				32400CA75ABD4FA38D4C304B /* fira_sans_light.ttf in Resources */,
+				A5546379D1D34AC58F19577F /* fira_sans_italic.ttf in Resources */,
+				963042F0BE2F418587783B67 /* fira_sans_black_italic.ttf in Resources */,
+				7486664E208744F8B4F3EF5E /* fira_sans_bold.ttf in Resources */,
+				A42B4DE2DBC1462A803CA65B /* fira_sans_extra_bold.ttf in Resources */,
+				ED0B38B97FE546C8878E544A /* fira_sans_bold_italic.ttf in Resources */,
+				22D76B6C3F054485AF92C9D6 /* fira_sans_semi_bold.ttf in Resources */,
+				409D21BA043F412CB497C5A5 /* fira_sans_extra_light_italic.ttf in Resources */,
+				392F80719B8241D8A0B58CB6 /* fira_sans_thin.ttf in Resources */,
+				B023D6902ADC4D53BBEB6CCD /* gotham_bold_italic.ttf in Resources */,
+				F857BEB76E594D02814EDE63 /* fira_sans_extra_bold_italic.ttf in Resources */,
+				FD2B4D4BE6524B7E8108150E /* fira_sans_black.ttf in Resources */,
+				AB5D4EB5A8154D28870C70BE /* fira_sans_light_italic.ttf in Resources */,
+				77918D1F18CC4986883DBCA8 /* fira_sans_medium.ttf in Resources */,
+				CA37E03DB495405F997D943F /* fira_sans_license.txt in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/.xcode.env.local",
+				"$(SRCROOT)/.xcode.env",
+			);
+			name = "Bundle React Native code and images";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\n\nWITH_ENVIRONMENT=\"$REACT_NATIVE_PATH/scripts/xcode/with-environment.sh\"\nREACT_NATIVE_XCODE=\"$REACT_NATIVE_PATH/scripts/react-native-xcode.sh\"\n\n/bin/sh -c \"\\\"$WITH_ENVIRONMENT\\\" \\\"$REACT_NATIVE_XCODE\\\"\"\n";
+		};
+		00EEFC60759A1932668264C0 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-ORTQ_App/Pods-ORTQ_App-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-ORTQ_App/Pods-ORTQ_App-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-ORTQ_App/Pods-ORTQ_App-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		C38B50BA6285516D6DCD4F65 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-ORTQ_App-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		E235C05ADACE081382539298 /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-ORTQ_App/Pods-ORTQ_App-resources-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Copy Pods Resources";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-ORTQ_App/Pods-ORTQ_App-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-ORTQ_App/Pods-ORTQ_App-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		13B07F871A680F5B00A75B9A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		13B07F941A680F5B00A75B9A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3B4392A12AC88292D35C810B /* Pods-ORTQ_App.debug.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_MODULES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_BITCODE = NO;
+				INFOPLIST_FILE = ORTQ_App/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+					"-lc++",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "org.reactjs.native.example.$(PRODUCT_NAME:rfc1034identifier)";
+				PRODUCT_NAME = ORTQ_App;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
+		13B07F951A680F5B00A75B9A /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5709B34CF0A7D63546082F79 /* Pods-ORTQ_App.release.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_MODULES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = ORTQ_App/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+					"-lc++",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "org.reactjs.native.example.$(PRODUCT_NAME:rfc1034identifier)";
+				PRODUCT_NAME = ORTQ_App;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
+		83CBBA201A601CBA00E9B192 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					/usr/lib/swift,
+					"$(inherited)",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"\"$(SDKROOT)/usr/lib/swift\"",
+					"\"$(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME)\"",
+					"\"$(inherited)\"",
+				);
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(OTHER_CFLAGS)",
+					"-DFOLLY_NO_CONFIG",
+					"-DFOLLY_MOBILE=1",
+					"-DFOLLY_USE_LIBCPP=1",
+					"-DFOLLY_CFG_NO_COROUTINES=1",
+					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
+				);
+				SDKROOT = iphoneos;
+			};
+			name = Debug;
+		};
+		83CBBA211A601CBA00E9B192 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				COPY_PHASE_STRIP = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					/usr/lib/swift,
+					"$(inherited)",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"\"$(SDKROOT)/usr/lib/swift\"",
+					"\"$(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME)\"",
+					"\"$(inherited)\"",
+				);
+				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(OTHER_CFLAGS)",
+					"-DFOLLY_NO_CONFIG",
+					"-DFOLLY_MOBILE=1",
+					"-DFOLLY_USE_LIBCPP=1",
+					"-DFOLLY_CFG_NO_COROUTINES=1",
+					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
+				);
+				SDKROOT = iphoneos;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "ORTQ_App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				13B07F941A680F5B00A75B9A /* Debug */,
+				13B07F951A680F5B00A75B9A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "ORTQ_App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				83CBBA201A601CBA00E9B192 /* Debug */,
+				83CBBA211A601CBA00E9B192 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 83CBB9F71A601CBA00E9B192 /* Project object */;
+}

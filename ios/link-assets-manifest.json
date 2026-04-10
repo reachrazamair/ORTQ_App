@@ -1,0 +1,129 @@
+{
+  "migIndex": 1,
+  "data": [
+    {
+      "path": "assets/fonts/fira_sans_black_italic.ttf",
+      "sha1": "85b0ff494e9b259722175a6f7367e4c713849352"
+    },
+    {
+      "path": "assets/fonts/fira_sans_black.ttf",
+      "sha1": "d4f1f6397ae7e9ec9a079df6bf05164493216d2c"
+    },
+    {
+      "path": "assets/fonts/fira_sans_bold_italic.ttf",
+      "sha1": "64ca0c2a17bc89e3e274ab93d0a34ccf557ed5ee"
+    },
+    {
+      "path": "assets/fonts/fira_sans_bold.ttf",
+      "sha1": "bdb04cd9e835a3cf7ba22df0354f1472812df225"
+    },
+    {
+      "path": "assets/fonts/fira_sans_extra_bold_italic.ttf",
+      "sha1": "d2605b822cb69309d7408914062ae483b9e049bc"
+    },
+    {
+      "path": "assets/fonts/fira_sans_extra_bold.ttf",
+      "sha1": "d9a480fc974e62445563aee389896c6e92c32edb"
+    },
+    {
+      "path": "assets/fonts/fira_sans_extra_light_italic.ttf",
+      "sha1": "87f5e101da6eb900e6dbcd0e2e0988bd02462558"
+    },
+    {
+      "path": "assets/fonts/fira_sans_extra_light.ttf",
+      "sha1": "98749514f072dfed08fcf9ff5e77ecfbc5e48cd8"
+    },
+    {
+      "path": "assets/fonts/fira_sans_italic.ttf",
+      "sha1": "c584552cccc716eb287a95a23806be746f3cad73"
+    },
+    {
+      "path": "assets/fonts/fira_sans_license.txt",
+      "sha1": "2b2df7003c2809196942c7a973a9c6ba75513a85"
+    },
+    {
+      "path": "assets/fonts/fira_sans_light_italic.ttf",
+      "sha1": "26d80b11b6b24499165341bce66c05126623052e"
+    },
+    {
+      "path": "assets/fonts/fira_sans_light.ttf",
+      "sha1": "d795fdfc99d1bad2c0e42eea5a9f06e49dd67b1b"
+    },
+    {
+      "path": "assets/fonts/fira_sans_medium_italic.ttf",
+      "sha1": "70985253068fcdd4774f198c6098c5f4946e548e"
+    },
+    {
+      "path": "assets/fonts/fira_sans_medium.ttf",
+      "sha1": "9181432d76711ae510c9f20713465810cf09e63b"
+    },
+    {
+      "path": "assets/fonts/fira_sans_regular.ttf",
+      "sha1": "9647e8c14e6618517f6942fbada0a01e2c18973d"
+    },
+    {
+      "path": "assets/fonts/fira_sans_semi_bold_italic.ttf",
+      "sha1": "925d03ef5fb51987cd0405f7cb717456ef24854a"
+    },
+    {
+      "path": "assets/fonts/fira_sans_semi_bold.ttf",
+      "sha1": "7d6bc4d8ea78656ca2f234e41f0e74e676ad61e2"
+    },
+    {
+      "path": "assets/fonts/fira_sans_thin_italic.ttf",
+      "sha1": "7e3a0aabbeb7122f3cb4d9e898cd55810a810ef9"
+    },
+    {
+      "path": "assets/fonts/fira_sans_thin.ttf",
+      "sha1": "98d54288a6f354977e85bc4bb200e910d5045b8b"
+    },
+    {
+      "path": "assets/fonts/gotham_black.otf",
+      "sha1": "54fdb121b8cd65336001ab7bbe02df18c5d911c7"
+    },
+    {
+      "path": "assets/fonts/gotham_bold_italic.ttf",
+      "sha1": "da6475cdce15b579ec90a27b5cafead0687c3f5a"
+    },
+    {
+      "path": "assets/fonts/gotham_bold.otf",
+      "sha1": "acd8beda0d3d0d108f94092cece27d1ab74ddada"
+    },
+    {
+      "path": "assets/fonts/gotham_book.otf",
+      "sha1": "844f136b0a3f3edfe0de466db3ebe3fabd9bff85"
+    },
+    {
+      "path": "assets/fonts/gotham_extra_light.otf",
+      "sha1": "bd9dd16552b0c007c4bae294ea6e24670856c25a"
+    },
+    {
+      "path": "assets/fonts/gotham_italic_bold.otf",
+      "sha1": "0cfcb8a3b76e0afb3f5dc43bd7118e4e32853fe2"
+    },
+    {
+      "path": "assets/fonts/gotham_italic.otf",
+      "sha1": "cb3b9cdc633c46755447c7ca048edc099327d42f"
+    },
+    {
+      "path": "assets/fonts/gotham_light.otf",
+      "sha1": "6dbbd440f45d81e1145d16d2b39aea41e93a5e20"
+    },
+    {
+      "path": "assets/fonts/gotham_medium.otf",
+      "sha1": "85f49464303dd4701110a719822462dc6182adf9"
+    },
+    {
+      "path": "assets/fonts/gotham_regular.otf",
+      "sha1": "045c24f3981f24b690621960f45c7443eb0eb979"
+    },
+    {
+      "path": "assets/fonts/gotham_thin_italic.otf",
+      "sha1": "f18e09b25db44cd1be9ad1a3bfa192c80965d45b"
+    },
+    {
+      "path": "assets/fonts/gotham_ultra.otf",
+      "sha1": "6f56f2d771b0e49743125d6e43baf969dcbadc6d"
+    }
+  ]
+}
