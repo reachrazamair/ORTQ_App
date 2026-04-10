@@ -39,6 +39,7 @@
 	<true/>
 	<key>UIAppFonts</key>
 	<array>
+		<string>Ionicons.ttf</string>
 		<string>gotham_medium.otf</string>
 		<string>gotham_black.otf</string>
 		<string>gotham_extra_light.otf</string>
