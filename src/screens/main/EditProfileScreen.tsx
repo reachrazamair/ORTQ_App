@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 import { supabase } from '../../lib/supabase';
@@ -184,15 +185,17 @@ export default function EditProfileScreen({ navigation }: Props) {
       style={styles.container}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          disabled={saving}
+        >
+          <Text style={styles.backArrow}>←</Text>
+        </TouchableOpacity>
+
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-            disabled={saving}
-          >
-            <Text style={styles.backArrow}>←</Text>
-          </TouchableOpacity>
           <Text style={styles.title}>Edit Profile</Text>
+          <Text style={styles.subtitle}>Update your personal information</Text>
         </View>
 
         {/* Avatar picker */}
@@ -209,7 +212,7 @@ export default function EditProfileScreen({ navigation }: Props) {
             </View>
           )}
           <View style={styles.cameraButton}>
-            <Text style={styles.cameraIcon}>📷</Text>
+            <Ionicons name="pencil" size={14} color={Colors.blueGrey} />
           </View>
         </TouchableOpacity>
 
@@ -272,12 +275,6 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     flexGrow: 1,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 32,
-    gap: 16,
-  },
   backButton: {
     width: 40,
     height: 40,
@@ -285,15 +282,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F9FA',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 32,
   },
   backArrow: {
     fontSize: 20,
     color: Colors.blueGrey,
   },
+  header: {
+    marginBottom: 32,
+  },
   title: {
     fontFamily: Fonts.gothamBold,
-    fontSize: 24,
+    fontSize: 28,
     color: Colors.blueGrey,
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontFamily: Fonts.firaSansRegular,
+    fontSize: 14,
+    color: '#687076',
   },
   avatarWrapper: {
     alignSelf: 'center',
@@ -332,9 +339,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 3,
     elevation: 3,
-  },
-  cameraIcon: {
-    fontSize: 16,
   },
   form: {
     gap: 24,
