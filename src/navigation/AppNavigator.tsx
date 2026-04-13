@@ -1,0 +1,69 @@
+import React from 'react';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Text, View } from 'react-native';
+import Icon from 'react-native-vector-icons/Ionicons';
+import { Colors } from '../theme/colors';
+import { Fonts } from '../theme/fonts';
+import ProfileScreen from '../screens/main/ProfileScreen';
+
+export type AppTabParamList = {
+  Explorer: undefined;
+  Leaderboard: undefined;
+  Profile: undefined;
+};
+
+const Tab = createBottomTabNavigator<AppTabParamList>();
+
+function PlaceholderScreen({ name }: { name: string }) {
+  return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ fontFamily: Fonts.gothamBold, color: Colors.blueGrey }}>
+        {name} — coming soon
+      </Text>
+    </View>
+  );
+}
+
+export default function AppNavigator() {
+  return (
+    <Tab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: Colors.orange,
+        tabBarInactiveTintColor: '#9AA0A6',
+        tabBarLabelStyle: { fontFamily: Fonts.firaSansRegular, fontSize: 12 },
+        tabBarStyle: { borderTopColor: '#F0F0F0' },
+      }}
+    >
+      <Tab.Screen
+        name="Explorer"
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Icon name="compass-outline" size={size} color={color} />
+          ),
+        }}
+      >
+        {() => <PlaceholderScreen name="Explorer" />}
+      </Tab.Screen>
+      <Tab.Screen
+        name="Leaderboard"
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Icon name="trophy-outline" size={size} color={color} />
+          ),
+        }}
+      >
+        {() => <PlaceholderScreen name="Leaderboard" />}
+      </Tab.Screen>
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Icon name="person-outline" size={size} color={color} />
+          ),
+        }}
+      />
+    </Tab.Navigator>
+  );
+}
