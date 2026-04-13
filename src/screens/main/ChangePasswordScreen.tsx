@@ -85,15 +85,17 @@ export default function ChangePasswordScreen({ navigation }: Props) {
       style={styles.container}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          disabled={saving}
+        >
+          <Text style={styles.backArrow}>←</Text>
+        </TouchableOpacity>
+
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-            disabled={saving}
-          >
-            <Text style={styles.backArrow}>←</Text>
-          </TouchableOpacity>
           <Text style={styles.title}>Change Password</Text>
+          <Text style={styles.subtitle}>Choose a strong new password</Text>
         </View>
 
         <View style={styles.form}>
@@ -166,12 +168,6 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     flexGrow: 1,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 40,
-    gap: 16,
-  },
   backButton: {
     width: 40,
     height: 40,
@@ -179,15 +175,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F9FA',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 32,
   },
   backArrow: {
     fontSize: 20,
     color: Colors.blueGrey,
   },
+  header: {
+    marginBottom: 40,
+  },
   title: {
     fontFamily: Fonts.gothamBold,
-    fontSize: 24,
+    fontSize: 28,
     color: Colors.blueGrey,
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontFamily: Fonts.firaSansRegular,
+    fontSize: 14,
+    color: '#687076',
   },
   form: {
     gap: 24,
