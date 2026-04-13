@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 import { supabase } from '../../lib/supabase';
@@ -55,16 +56,18 @@ export default function ProfileScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        setEmail(data.user.email ?? '');
-        const meta = data.user.user_metadata;
-        setDisplayName(meta?.full_name ?? meta?.name ?? '');
-      }
-      setLoading(false);
-    });
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      supabase.auth.getUser().then(({ data }) => {
+        if (data.user) {
+          setEmail(data.user.email ?? '');
+          const meta = data.user.user_metadata;
+          setDisplayName(meta?.full_name ?? meta?.name ?? '');
+        }
+        setLoading(false);
+      });
+    }, []),
+  );
 
   const handleSignOut = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
