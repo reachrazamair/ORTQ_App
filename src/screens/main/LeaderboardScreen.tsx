@@ -1,7 +1,11 @@
-import React, { useState } from 'react';
+'use client';
+
+import React, { useMemo, useState } from 'react';
 import {
-  FlatList,
+  ActivityIndicator,
   Image,
+  Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,6 +14,10 @@ import {
 } from 'react-native';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 type LeaderboardUser = {
   user_id: string;
@@ -21,7 +29,20 @@ type LeaderboardUser = {
   city: string;
   state_abbreviation: string;
   profile_image_url: string | null;
+  // profile modal fields
+  vehicle_type?: string | null;
+  make?: string | null;
+  model?: string | null;
+  year?: string | null;
+  rig_description?: string | null;
+  about_me?: string | null;
 };
+
+type RankedUser = LeaderboardUser & { position: number };
+
+// ---------------------------------------------------------------------------
+// Mock data (replace with real API call)
+// ---------------------------------------------------------------------------
 
 const MOCK_USERS: LeaderboardUser[] = [
   {
@@ -34,6 +55,12 @@ const MOCK_USERS: LeaderboardUser[] = [
     city: 'Denver',
     state_abbreviation: 'CO',
     profile_image_url: null,
+    vehicle_type: 'Truck',
+    make: 'Ford',
+    model: 'Bronco',
+    year: '2022',
+    rig_description: 'Lifted 4" with 35s, ARB bumpers front and rear.',
+    about_me: 'Obsessed with high-altitude trails and chasing sunsets from ridge lines.',
   },
   {
     user_id: '2',
@@ -45,6 +72,12 @@ const MOCK_USERS: LeaderboardUser[] = [
     city: 'Phoenix',
     state_abbreviation: 'AZ',
     profile_image_url: null,
+    vehicle_type: 'SUV',
+    make: 'Toyota',
+    model: '4Runner',
+    year: '2021',
+    rig_description: null,
+    about_me: 'Desert trails and canyon runs are my happy place.',
   },
   {
     user_id: '3',
@@ -56,6 +89,12 @@ const MOCK_USERS: LeaderboardUser[] = [
     city: 'Salt Lake City',
     state_abbreviation: 'UT',
     profile_image_url: null,
+    vehicle_type: 'Jeep',
+    make: 'Jeep',
+    model: 'Wrangler',
+    year: '2020',
+    rig_description: 'Full rock sliders, Dana 44 axle swaps, and 37" Terraflex.',
+    about_me: null,
   },
   {
     user_id: '4',
@@ -67,6 +106,12 @@ const MOCK_USERS: LeaderboardUser[] = [
     city: 'Boise',
     state_abbreviation: 'ID',
     profile_image_url: null,
+    vehicle_type: null,
+    make: null,
+    model: null,
+    year: null,
+    rig_description: null,
+    about_me: 'Weekend explorer, lover of remote roads.',
   },
   {
     user_id: '5',
@@ -78,6 +123,12 @@ const MOCK_USERS: LeaderboardUser[] = [
     city: 'Albuquerque',
     state_abbreviation: 'NM',
     profile_image_url: null,
+    vehicle_type: null,
+    make: null,
+    model: null,
+    year: null,
+    rig_description: null,
+    about_me: null,
   },
   {
     user_id: '6',
@@ -89,6 +140,12 @@ const MOCK_USERS: LeaderboardUser[] = [
     city: 'Tucson',
     state_abbreviation: 'AZ',
     profile_image_url: null,
+    vehicle_type: null,
+    make: null,
+    model: null,
+    year: null,
+    rig_description: null,
+    about_me: null,
   },
   {
     user_id: '7',
@@ -100,131 +157,297 @@ const MOCK_USERS: LeaderboardUser[] = [
     city: 'Reno',
     state_abbreviation: 'NV',
     profile_image_url: null,
+    vehicle_type: null,
+    make: null,
+    model: null,
+    year: null,
+    rig_description: null,
+    about_me: null,
   },
 ];
 
-const MEDAL_COLORS = ['#FFD700', '#C0C0C0', '#CD7F32'];
-const REGIONS = ['All Regions', 'Southwest', 'Rocky Mountain', 'Pacific'];
+const MOCK_CURRENT_USER_ID = '3'; // simulate logged-in user
 
-const displayName = (user: LeaderboardUser) => user.alias ?? user.full_name;
+const REGIONS = [
+  { id: 'all', name: 'All Regions' },
+  { id: 'southwest', name: 'Southwest' },
+  { id: 'rocky-mountain', name: 'Rocky Mountain' },
+  { id: 'pacific', name: 'Pacific' },
+];
 
-const getInitials = (user: LeaderboardUser) =>
-  displayName(user).charAt(0).toUpperCase();
+// ---------------------------------------------------------------------------
+// Medal colors
+// ---------------------------------------------------------------------------
 
-function PodiumCard({
+const MEDAL_COLORS: Record<number, string> = {
+  1: '#F59E0B', // gold
+  2: '#9CA3AF', // silver
+  3: '#B45309', // bronze
+};
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function getUserName(user: LeaderboardUser) {
+  return user.alias ?? user.full_name ?? 'Quest Participant';
+}
+
+function getInitials(name: string) {
+  return name
+    .split(' ')
+    .map(n => n.charAt(0).toUpperCase())
+    .join('');
+}
+
+function getCompletedTrailsText(count: number) {
+  return count === 1 ? '1 Completed Trail' : `${count} Completed Trails`;
+}
+
+// ---------------------------------------------------------------------------
+// Position badge
+// ---------------------------------------------------------------------------
+
+function PositionBadge({ position }: { position: number }) {
+  const medalColor = MEDAL_COLORS[position];
+  return (
+    <View
+      style={[
+        styles.positionBadge,
+        medalColor ? { backgroundColor: medalColor } : styles.positionBadgeDefault,
+      ]}
+    >
+      <Text
+        style={[
+          styles.positionBadgeText,
+          !medalColor && styles.positionBadgeTextDefault,
+        ]}
+      >
+        {position}
+      </Text>
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// UserProfileModal
+// ---------------------------------------------------------------------------
+
+function UserProfileModal({
   user,
-  position,
+  isOpen,
+  onClose,
 }: {
-  user: LeaderboardUser;
-  position: number;
+  user: RankedUser | null;
+  isOpen: boolean;
+  onClose: () => void;
 }) {
-  const isFirst = position === 0;
+  if (!user) return null;
+
+  const name = getUserName(user);
+  const initials = getInitials(name);
+  const hasVehicle = user.vehicle_type || user.make || user.model || user.year || user.rig_description;
+
   return (
-    <View style={[styles.podiumCard, isFirst && styles.podiumCardFirst]}>
-      <View
+    <Modal visible={isOpen} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View style={styles.modalSheet}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.modalScroll}
+          >
+            {/* Avatar */}
+            <View style={styles.modalAvatarWrap}>
+              <View style={styles.modalAvatarRing}>
+                {user.profile_image_url ? (
+                  <Image
+                    source={{ uri: user.profile_image_url }}
+                    style={styles.modalAvatarImg}
+                  />
+                ) : (
+                  <View style={styles.modalAvatarPlaceholder}>
+                    <Text style={styles.modalAvatarInitials}>{initials}</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {/* Name + location */}
+            <Text style={styles.modalName}>{name}</Text>
+            <Text style={styles.modalLocation}>
+              {user.city || 'N/A'}, {user.state_abbreviation || 'N/A'}
+            </Text>
+
+            {/* Stats row */}
+            <View style={styles.modalStatsRow}>
+              <View style={styles.modalStat}>
+                <Text style={styles.modalStatValue}>{user.points_earned.toLocaleString()}</Text>
+                <Text style={styles.modalStatLabel}>Points</Text>
+              </View>
+              <View style={styles.modalStatDivider} />
+              <View style={styles.modalStat}>
+                <Text style={styles.modalStatValue}>{user.trails_completed_count}</Text>
+                <Text style={styles.modalStatLabel}>Completed Trails</Text>
+              </View>
+            </View>
+
+            {/* Vehicle section */}
+            {hasVehicle && (
+              <View style={styles.modalSection}>
+                <Text style={styles.modalSectionTitle}>Vehicle</Text>
+                <View style={styles.modalGrid}>
+                  <Text style={styles.modalGridLabel}>Type</Text>
+                  <Text style={styles.modalGridValue}>{user.vehicle_type || 'N/A'}</Text>
+
+                  <Text style={styles.modalGridLabel}>Make</Text>
+                  <Text style={styles.modalGridValue}>{user.make || 'N/A'}</Text>
+
+                  <Text style={styles.modalGridLabel}>Model</Text>
+                  <Text style={styles.modalGridValue}>{user.model || 'N/A'}</Text>
+
+                  <Text style={styles.modalGridLabel}>Year</Text>
+                  <Text style={styles.modalGridValue}>{user.year || 'N/A'}</Text>
+                </View>
+                {user.rig_description && (
+                  <View style={styles.modalRigWrap}>
+                    <Text style={styles.modalRigLabel}>Rig Description</Text>
+                    <Text style={styles.modalRigText}>{user.rig_description}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* About Me section */}
+            {user.about_me && (
+              <View style={styles.modalSection}>
+                <Text style={styles.modalSectionTitle}>About Me</Text>
+                <Text style={styles.modalAboutText}>{user.about_me}</Text>
+              </View>
+            )}
+          </ScrollView>
+
+          <TouchableOpacity style={styles.modalCloseBtn} onPress={onClose}>
+            <Text style={styles.modalCloseBtnText}>Close</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// UserRow
+// ---------------------------------------------------------------------------
+
+function UserRow({
+  rankedUser,
+  isCurrentUser,
+  isLast,
+  onPress,
+}: {
+  rankedUser: RankedUser;
+  isCurrentUser: boolean;
+  isLast: boolean;
+  onPress: () => void;
+}) {
+  const medalColor = MEDAL_COLORS[rankedUser.position];
+  const name = getUserName(rankedUser);
+  const initials = getInitials(name);
+
+  return (
+    <>
+      <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={0.7}
         style={[
-          styles.podiumAvatar,
-          isFirst && styles.podiumAvatarFirst,
-          { borderColor: MEDAL_COLORS[position] },
+          styles.row,
+          isCurrentUser && styles.rowCurrentUser,
+          medalColor ? { borderLeftWidth: 4, borderLeftColor: medalColor } : undefined,
         ]}
       >
-        {user.profile_image_url ? (
-          <Image
-            source={{ uri: user.profile_image_url }}
-            style={styles.podiumAvatarImg}
-          />
-        ) : (
-          <Text
-            style={[styles.podiumInitial, isFirst && styles.podiumInitialFirst]}
-          >
-            {getInitials(user)}
+        {/* Position badge */}
+        <PositionBadge position={rankedUser.position} />
+
+        {/* Avatar */}
+        <View style={styles.avatarWrap}>
+          {rankedUser.profile_image_url ? (
+            <Image source={{ uri: rankedUser.profile_image_url }} style={styles.avatarImg} />
+          ) : (
+            <View
+              style={[
+                styles.avatarPlaceholder,
+                medalColor && { borderWidth: 2, borderColor: medalColor },
+              ]}
+            >
+              <Text style={styles.avatarInitials}>{initials}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Info */}
+        <View style={styles.info}>
+          <Text style={styles.name} numberOfLines={1}>
+            {name}
+            {isCurrentUser && <Text style={styles.youBadge}> (You)</Text>}
           </Text>
-        )}
-      </View>
-      <View
-        style={[
-          styles.medalBadge,
-          { backgroundColor: MEDAL_COLORS[position] },
-        ]}
-      >
-        <Text style={styles.medalText}>{position + 1}</Text>
-      </View>
-      <Text style={styles.podiumName} numberOfLines={1}>
-        {displayName(user)}
-      </Text>
-      <Text style={styles.podiumPoints}>
-        {user.points_earned.toLocaleString()} pts
-      </Text>
-    </View>
+          <Text style={styles.location}>
+            {rankedUser.city || 'N/A'}, {rankedUser.state_abbreviation || 'N/A'}
+          </Text>
+          <Text style={styles.trailsText}>
+            {getCompletedTrailsText(rankedUser.trails_completed_count)}
+          </Text>
+        </View>
+
+        {/* Points */}
+        <View style={styles.pointsWrap}>
+          <Text style={styles.points}>{rankedUser.points_earned.toLocaleString()} pts</Text>
+        </View>
+      </TouchableOpacity>
+      {!isLast && <View style={styles.divider} />}
+    </>
   );
 }
 
-function RankRow({ user, isMe }: { user: LeaderboardUser; isMe: boolean }) {
-  return (
-    <View style={[styles.rankRow, isMe && styles.rankRowMe]}>
-      <Text style={[styles.rankNumber, isMe && styles.rankNumberMe]}>
-        #{user.leaderboard_rank}
-      </Text>
-
-      <View style={styles.rankAvatar}>
-        {user.profile_image_url ? (
-          <Image
-            source={{ uri: user.profile_image_url }}
-            style={styles.rankAvatarImg}
-          />
-        ) : (
-          <View
-            style={[
-              styles.rankAvatarPlaceholder,
-              isMe && styles.rankAvatarPlaceholderMe,
-            ]}
-          >
-            <Text style={styles.rankAvatarInitial}>{getInitials(user)}</Text>
-          </View>
-        )}
-      </View>
-
-      <View style={styles.rankInfo}>
-        <Text style={[styles.rankName, isMe && styles.rankNameMe]} numberOfLines={1}>
-          {displayName(user)}
-        </Text>
-        <Text style={styles.rankLocation}>
-          {user.city}, {user.state_abbreviation}
-        </Text>
-      </View>
-
-      <View style={styles.rankStats}>
-        <Text style={[styles.rankPoints, isMe && styles.rankPointsMe]}>
-          {user.points_earned.toLocaleString()}
-          <Text style={styles.rankPtLabel}> pts</Text>
-        </Text>
-        <Text style={styles.rankTrails}>
-          {user.trails_completed_count} trails
-        </Text>
-      </View>
-    </View>
-  );
-}
+// ---------------------------------------------------------------------------
+// Main screen
+// ---------------------------------------------------------------------------
 
 export default function LeaderboardScreen() {
-  const [selectedRegion, setSelectedRegion] = useState('All Regions');
+  const [selectedRegion, setSelectedRegion] = useState('all');
+  const [selectedUser, setSelectedUser] = useState<RankedUser | null>(null);
+  const isLoading = false; // replace with real loading state
 
-  const topThree = MOCK_USERS.slice(0, 3);
-  const rest = MOCK_USERS.slice(3);
-
-  // Podium order: 2nd, 1st, 3rd
-  const podiumOrder = [topThree[1], topThree[0], topThree[2]];
+  // Tie-aware position calculation (mirrors web logic)
+  const usersWithPosition = useMemo<RankedUser[]>(() => {
+    let position = 1;
+    return MOCK_USERS.map((user, index) => {
+      if (index > 0) {
+        const prevRank = MOCK_USERS[index - 1].leaderboard_rank;
+        const prevPosition = position;
+        if (user.leaderboard_rank === prevRank) {
+          position = prevPosition;
+        } else {
+          position = prevPosition + 1;
+        }
+      }
+      return { ...user, position };
+    });
+  }, []);
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Leaderboard</Text>
-        <Text style={styles.headerSub}>Top explorers this season</Text>
-      </View>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Leaderboard</Text>
+          <Text style={styles.headerSub}>Top Questers</Text>
+        </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Region filter */}
+        {/* Region filter chips */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -232,187 +455,143 @@ export default function LeaderboardScreen() {
         >
           {REGIONS.map(region => (
             <TouchableOpacity
-              key={region}
-              style={[
-                styles.filterChip,
-                selectedRegion === region && styles.filterChipActive,
-              ]}
-              onPress={() => setSelectedRegion(region)}
+              key={region.id}
+              style={[styles.chip, selectedRegion === region.id && styles.chipActive]}
+              onPress={() => setSelectedRegion(region.id)}
             >
               <Text
-                style={[
-                  styles.filterChipText,
-                  selectedRegion === region && styles.filterChipTextActive,
-                ]}
+                style={[styles.chipText, selectedRegion === region.id && styles.chipTextActive]}
               >
-                {region}
+                {region.name}
               </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
 
-        {/* Podium — top 3 */}
-        <View style={styles.podium}>
-          {podiumOrder.map((user, i) => {
-            const originalIndex = topThree.indexOf(user);
-            return (
-              <PodiumCard key={user.user_id} user={user} position={originalIndex} />
-            );
-          })}
-        </View>
+        {/* Card title */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            Top Questers —{' '}
+            {selectedRegion === 'all'
+              ? 'All Regions'
+              : REGIONS.find(r => r.id === selectedRegion)?.name ?? 'Selected Region'}
+          </Text>
 
-        {/* Rank list — 4th onwards */}
-        <View style={styles.rankList}>
-          <Text style={styles.rankListTitle}>Rankings</Text>
-          {rest.map(user => (
-            <RankRow key={user.user_id} user={user} isMe={false} />
-          ))}
-        </View>
+          <View style={styles.card}>
+            {/* Loading state */}
+            {isLoading && (
+              <View style={styles.centeredState}>
+                <ActivityIndicator size="large" color={Colors.orange} />
+                <Text style={styles.centeredStateText}>Loading Leaderboard...</Text>
+              </View>
+            )}
 
-        <View style={styles.bottomPad} />
+            {/* Empty state */}
+            {!isLoading && usersWithPosition.length === 0 && (
+              <View style={styles.centeredState}>
+                <Text style={styles.centeredStateText}>
+                  No users found for this region or selection.
+                </Text>
+              </View>
+            )}
+
+            {/* List */}
+            {!isLoading &&
+              usersWithPosition.map((rankedUser, index) => (
+                <UserRow
+                  key={rankedUser.user_id}
+                  rankedUser={rankedUser}
+                  isCurrentUser={rankedUser.user_id === MOCK_CURRENT_USER_ID}
+                  isLast={index === usersWithPosition.length - 1}
+                  onPress={() => setSelectedUser(rankedUser)}
+                />
+              ))}
+          </View>
+        </View>
       </ScrollView>
+
+      <UserProfileModal
+        user={selectedUser}
+        isOpen={!!selectedUser}
+        onClose={() => setSelectedUser(null)}
+      />
     </View>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Styles
+// ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
   },
+  scrollContent: {
+    paddingBottom: 40,
+  },
 
   // Header
   header: {
-    backgroundColor: Colors.blueGrey,
     paddingTop: 60,
-    paddingBottom: 24,
     paddingHorizontal: 24,
+    paddingBottom: 4,
   },
   headerTitle: {
     fontFamily: Fonts.gothamBold,
     fontSize: 28,
-    color: '#fff',
+    color: Colors.blueGrey,
     marginBottom: 4,
   },
   headerSub: {
     fontFamily: Fonts.firaSansRegular,
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.6)',
+    fontSize: 15,
+    color: '#687076',
   },
 
-  // Region filter
+  // Region chips
   filterRow: {
     paddingHorizontal: 20,
     paddingVertical: 16,
     gap: 8,
   },
-  filterChip: {
+  chip: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E9ECEF',
   },
-  filterChipActive: {
+  chipActive: {
     backgroundColor: Colors.orange,
     borderColor: Colors.orange,
   },
-  filterChipText: {
+  chipText: {
     fontFamily: Fonts.firaSansRegular,
     fontSize: 13,
     color: Colors.blueGrey,
   },
-  filterChipTextActive: {
+  chipTextActive: {
     color: '#fff',
     fontFamily: Fonts.firaSansBold,
   },
 
-  // Podium
-  podium: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 24,
-    gap: 8,
-  },
-  podiumCard: {
-    flex: 1,
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  podiumCardFirst: {
-    paddingTop: 24,
-    shadowOpacity: 0.1,
-    elevation: 6,
-  },
-  podiumAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#F0F0F0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    marginBottom: 8,
-    overflow: 'hidden',
-  },
-  podiumAvatarFirst: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    borderWidth: 3,
-  },
-  podiumAvatarImg: {
-    width: '100%',
-    height: '100%',
-  },
-  podiumInitial: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 22,
-    color: Colors.blueGrey,
-  },
-  podiumInitialFirst: {
-    fontSize: 28,
-  },
-  medalBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  medalText: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 12,
-    color: '#fff',
-  },
-  podiumName: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 12,
-    color: Colors.blueGrey,
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  podiumPoints: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 11,
-    color: Colors.orange,
-  },
-
-  // Rank list
-  rankList: {
+  // Section
+  section: {
     marginHorizontal: 20,
+  },
+  sectionTitle: {
+    fontFamily: Fonts.gothamBold,
+    fontSize: 13,
+    color: '#687076',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  card: {
     backgroundColor: '#fff',
     borderRadius: 16,
     overflow: 'hidden',
@@ -422,102 +601,282 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  rankListTitle: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 13,
-    color: '#687076',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
+
+  // States
+  centeredState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    gap: 10,
   },
-  rankRow: {
+  centeredStateText: {
+    fontFamily: Fonts.firaSansRegular,
+    fontSize: 14,
+    color: '#9AA0A6',
+  },
+
+  // Row
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    paddingVertical: 14,
     gap: 12,
   },
-  rankRowMe: {
-    backgroundColor: '#FFF8F3',
+  rowCurrentUser: {
+    backgroundColor: 'rgba(242, 118, 32, 0.08)',
   },
-  rankNumber: {
+  divider: {
+    height: 1,
+    backgroundColor: '#F0F0F0',
+    marginLeft: 16,
+  },
+
+  // Position badge
+  positionBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  positionBadgeDefault: {
+    backgroundColor: '#EEF0F2',
+  },
+  positionBadgeText: {
     fontFamily: Fonts.gothamBold,
     fontSize: 13,
-    color: '#9AA0A6',
-    width: 28,
+    color: '#fff',
   },
-  rankNumberMe: {
-    color: Colors.orange,
+  positionBadgeTextDefault: {
+    color: '#687076',
   },
-  rankAvatar: {
-    width: 40,
-    height: 40,
+
+  // Avatar
+  avatarWrap: {
+    width: 44,
+    height: 44,
   },
-  rankAvatarImg: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  avatarImg: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
-  rankAvatarPlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  avatarPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#EEF0F2',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  rankAvatarPlaceholderMe: {
-    backgroundColor: Colors.orange,
-  },
-  rankAvatarInitial: {
+  avatarInitials: {
     fontFamily: Fonts.gothamBold,
-    fontSize: 16,
+    fontSize: 15,
     color: Colors.blueGrey,
   },
-  rankInfo: {
+
+  // Info
+  info: {
     flex: 1,
   },
-  rankName: {
+  name: {
     fontFamily: Fonts.gothamBold,
     fontSize: 14,
     color: Colors.blueGrey,
     marginBottom: 2,
   },
-  rankNameMe: {
+  youBadge: {
+    fontFamily: Fonts.firaSansRegular,
+    fontSize: 12,
     color: Colors.orange,
   },
-  rankLocation: {
+  location: {
     fontFamily: Fonts.firaSansRegular,
     fontSize: 12,
     color: '#9AA0A6',
   },
-  rankStats: {
+  trailsText: {
+    fontFamily: Fonts.firaSansRegular,
+    fontSize: 11,
+    color: '#9AA0A6',
+    marginTop: 1,
+  },
+
+  // Points
+  pointsWrap: {
     alignItems: 'flex-end',
   },
-  rankPoints: {
+  points: {
     fontFamily: Fonts.gothamBold,
-    fontSize: 14,
-    color: Colors.blueGrey,
-  },
-  rankPointsMe: {
+    fontSize: 13,
     color: Colors.orange,
   },
-  rankPtLabel: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 12,
-    color: '#9AA0A6',
+
+  // ---------------------------------------------------------------------------
+  // Profile modal
+  // ---------------------------------------------------------------------------
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.4)',
   },
-  rankTrails: {
+  modalSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '85%',
+    paddingBottom: 32,
+  },
+  modalScroll: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 8,
+  },
+
+  // Avatar
+  modalAvatarWrap: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalAvatarRing: {
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    borderWidth: 2,
+    borderColor: Colors.orange,
+    padding: 2,
+  },
+  modalAvatarImg: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 44,
+  },
+  modalAvatarPlaceholder: {
+    flex: 1,
+    borderRadius: 44,
+    backgroundColor: '#EEF0F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalAvatarInitials: {
+    fontFamily: Fonts.gothamBold,
+    fontSize: 28,
+    color: Colors.blueGrey,
+  },
+
+  // Name / location
+  modalName: {
+    fontFamily: Fonts.gothamBold,
+    fontSize: 20,
+    color: Colors.blueGrey,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  modalLocation: {
+    fontFamily: Fonts.firaSansRegular,
+    fontSize: 14,
+    color: '#9AA0A6',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+
+  // Stats row
+  modalStatsRow: {
+    flexDirection: 'row',
+    backgroundColor: '#F8F8F8',
+    borderRadius: 12,
+    paddingVertical: 16,
+    marginBottom: 24,
+  },
+  modalStat: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  modalStatDivider: {
+    width: 1,
+    backgroundColor: '#E9ECEF',
+  },
+  modalStatValue: {
+    fontFamily: Fonts.gothamBold,
+    fontSize: 18,
+    color: Colors.orange,
+    marginBottom: 2,
+  },
+  modalStatLabel: {
     fontFamily: Fonts.firaSansRegular,
     fontSize: 12,
     color: '#9AA0A6',
   },
 
-  bottomPad: {
-    height: 32,
+  // Section
+  modalSection: {
+    marginBottom: 20,
+  },
+  modalSectionTitle: {
+    fontFamily: Fonts.gothamBold,
+    fontSize: 12,
+    color: '#687076',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 10,
+  },
+
+  // Vehicle grid
+  modalGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    rowGap: 8,
+  },
+  modalGridLabel: {
+    width: '35%',
+    fontFamily: Fonts.firaSansBold,
+    fontSize: 13,
+    color: '#9AA0A6',
+  },
+  modalGridValue: {
+    width: '65%',
+    fontFamily: Fonts.firaSansRegular,
+    fontSize: 13,
+    color: Colors.blueGrey,
+  },
+  modalRigWrap: {
+    marginTop: 12,
+  },
+  modalRigLabel: {
+    fontFamily: Fonts.firaSansBold,
+    fontSize: 12,
+    color: '#9AA0A6',
+    marginBottom: 4,
+  },
+  modalRigText: {
+    fontFamily: Fonts.firaSansRegular,
+    fontSize: 13,
+    color: Colors.blueGrey,
+    lineHeight: 20,
+  },
+
+  // About
+  modalAboutText: {
+    fontFamily: Fonts.firaSansRegular,
+    fontSize: 13,
+    color: Colors.blueGrey,
+    lineHeight: 20,
+  },
+
+  // Close button
+  modalCloseBtn: {
+    marginHorizontal: 24,
+    marginTop: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+    alignItems: 'center',
+  },
+  modalCloseBtnText: {
+    fontFamily: Fonts.firaSansBold,
+    fontSize: 14,
+    color: Colors.blueGrey,
   },
 });
