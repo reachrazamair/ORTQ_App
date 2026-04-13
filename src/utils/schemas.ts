@@ -17,6 +17,7 @@ export const forgotPasswordSchema = z.object({
 
 export const editProfileSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
+  email: z.email('Invalid email address'),
 });
 
 export const changePasswordSchema = z

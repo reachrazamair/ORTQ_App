@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -53,6 +54,7 @@ function MenuRow({ label, onPress, destructive }: MenuRowProps) {
 export default function ProfileScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -63,6 +65,7 @@ export default function ProfileScreen({ navigation }: Props) {
           setEmail(data.user.email ?? '');
           const meta = data.user.user_metadata;
           setDisplayName(meta?.full_name ?? meta?.name ?? '');
+          setAvatarUrl(meta?.avatar_url ?? null);
         }
         setLoading(false);
       });
@@ -104,9 +107,13 @@ export default function ProfileScreen({ navigation }: Props) {
     >
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{avatarInitial}</Text>
-        </View>
+        {avatarUrl ? (
+          <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+        ) : (
+          <View style={[styles.avatar, styles.avatarPlaceholder]}>
+            <Text style={styles.avatarText}>{avatarInitial}</Text>
+          </View>
+        )}
         <Text style={styles.displayName}>
           {displayName || 'Explorer'}
         </Text>
@@ -193,15 +200,17 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: Colors.orange,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: 16,
     shadowColor: Colors.orange,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
+  },
+  avatarPlaceholder: {
+    backgroundColor: Colors.orange,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   avatarText: {
     fontFamily: Fonts.gothamBold,
