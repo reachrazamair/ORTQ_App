@@ -182,17 +182,17 @@ const styles = StyleSheet.create({
     color: Colors.blueGrey,
   },
   header: {
-    marginBottom: 40,
+    marginBottom: 48,
   },
   title: {
     fontFamily: Fonts.gothamBold,
     fontSize: 28,
     color: Colors.blueGrey,
-    marginBottom: 4,
+    marginBottom: 8,
   },
   subtitle: {
     fontFamily: Fonts.firaSansRegular,
-    fontSize: 14,
+    fontSize: 16,
     color: '#687076',
   },
   form: {
