@@ -5,6 +5,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { Colors } from '../theme/colors';
 import { Fonts } from '../theme/fonts';
 import ProfileStack from './ProfileStack';
+import LeaderboardScreen from '../screens/main/LeaderboardScreen';
 
 export type AppTabParamList = {
   Explorer: undefined;
@@ -47,14 +48,13 @@ export default function AppNavigator() {
       </Tab.Screen>
       <Tab.Screen
         name="Leaderboard"
+        component={LeaderboardScreen}
         options={{
           tabBarIcon: ({ color, size }) => (
             <Icon name="trophy-outline" size={size} color={color} />
           ),
         }}
-      >
-        {() => <PlaceholderScreen name="Leaderboard" />}
-      </Tab.Screen>
+      />
       <Tab.Screen
         name="Profile"
         component={ProfileStack}
