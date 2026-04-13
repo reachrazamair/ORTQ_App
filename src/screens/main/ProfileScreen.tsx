@@ -8,9 +8,15 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 import { supabase } from '../../lib/supabase';
+import { ProfileStackParamList } from '../../navigation/ProfileStack';
+
+type Props = {
+  navigation: NativeStackNavigationProp<ProfileStackParamList, 'ProfileHome'>;
+};
 
 type StatCardProps = {
   value: string | number;
@@ -43,7 +49,7 @@ function MenuRow({ label, onPress, destructive }: MenuRowProps) {
   );
 }
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(true);
@@ -117,9 +123,9 @@ export default function ProfileScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Account</Text>
         <View style={styles.menuCard}>
-          <MenuRow label="Edit Profile" onPress={() => {}} />
+          <MenuRow label="Edit Profile" onPress={() => navigation.navigate('EditProfile')} />
           <View style={styles.rowDivider} />
-          <MenuRow label="Change Password" onPress={() => {}} />
+          <MenuRow label="Change Password" onPress={() => navigation.navigate('ChangePassword')} />
           <View style={styles.rowDivider} />
           <MenuRow label="Notifications" onPress={() => {}} />
         </View>

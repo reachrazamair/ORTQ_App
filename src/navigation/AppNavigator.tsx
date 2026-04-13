@@ -4,7 +4,7 @@ import { Text, View } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { Colors } from '../theme/colors';
 import { Fonts } from '../theme/fonts';
-import ProfileScreen from '../screens/main/ProfileScreen';
+import ProfileStack from './ProfileStack';
 
 export type AppTabParamList = {
   Explorer: undefined;
@@ -57,7 +57,7 @@ export default function AppNavigator() {
       </Tab.Screen>
       <Tab.Screen
         name="Profile"
-        component={ProfileScreen}
+        component={ProfileStack}
         options={{
           tabBarIcon: ({ color, size }) => (
             <Icon name="person-outline" size={size} color={color} />
