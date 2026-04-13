@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Colors } from '../../theme/colors';
@@ -180,10 +181,11 @@ export default function EditProfileScreen({ navigation }: Props) {
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <TouchableOpacity
           style={styles.backButton}
@@ -256,7 +258,8 @@ export default function EditProfileScreen({ navigation }: Props) {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
@@ -272,7 +275,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 24,
-    paddingTop: 60,
     flexGrow: 1,
   },
   backButton: {

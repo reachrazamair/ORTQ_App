@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 import { supabase } from '../../lib/supabase';
@@ -100,6 +101,7 @@ export default function ProfileScreen({ navigation }: Props) {
   }
 
   return (
+    <SafeAreaView style={styles.safeArea}>
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.scrollContent}
@@ -164,10 +166,16 @@ export default function ProfileScreen({ navigation }: Props) {
         </View>
       </View>
     </ScrollView>
+    </SafeAreaView>
   );
+
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#fff', // matches header card so status bar area blends in
+  },
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
@@ -186,7 +194,6 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     backgroundColor: '#fff',
-    paddingTop: 60,
     paddingBottom: 28,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,

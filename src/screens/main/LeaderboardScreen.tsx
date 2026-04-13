@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
   Image,
@@ -436,13 +437,13 @@ export default function LeaderboardScreen() {
   }, []);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: 8 }]}>
           <Text style={styles.headerTitle}>Leaderboard</Text>
           <Text style={styles.headerSub}>Top Questers</Text>
         </View>
@@ -515,7 +516,7 @@ export default function LeaderboardScreen() {
         isOpen={!!selectedUser}
         onClose={() => setSelectedUser(null)}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -534,7 +535,6 @@ const styles = StyleSheet.create({
 
   // Header
   header: {
-    paddingTop: 60,
     paddingHorizontal: 24,
     paddingBottom: 4,
   },

@@ -6,6 +6,7 @@ import { Colors } from '../theme/colors';
 import { Fonts } from '../theme/fonts';
 import ProfileStack from './ProfileStack';
 import LeaderboardScreen from '../screens/main/LeaderboardScreen';
+import ExplorerScreen from '../screens/main/ExplorerScreen';
 
 export type AppTabParamList = {
   Explorer: undefined;
@@ -38,14 +39,13 @@ export default function AppNavigator() {
     >
       <Tab.Screen
         name="Explorer"
+        component={ExplorerScreen}
         options={{
           tabBarIcon: ({ color, size }) => (
             <Icon name="compass-outline" size={size} color={color} />
           ),
         }}
-      >
-        {() => <PlaceholderScreen name="Explorer" />}
-      </Tab.Screen>
+      />
       <Tab.Screen
         name="Leaderboard"
         component={LeaderboardScreen}
