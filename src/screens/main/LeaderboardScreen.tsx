@@ -437,13 +437,14 @@ export default function LeaderboardScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView
+        style={styles.container}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
         {/* Header */}
-        <View style={[styles.header, { paddingTop: 8 }]}>
+        <View style={styles.header}>
           <Text style={styles.headerTitle}>Leaderboard</Text>
           <Text style={styles.headerSub}>Top Questers</Text>
         </View>
@@ -525,6 +526,10 @@ export default function LeaderboardScreen() {
 // ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
+  },
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
