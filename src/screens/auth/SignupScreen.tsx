@@ -24,45 +24,58 @@ type Props = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Signup'>;
 };
 
+const PASSWORD_RULES = [
+  { label: 'At least 8 characters', test: (p: string) => p.length >= 8 },
+  { label: 'One uppercase letter', test: (p: string) => /[A-Z]/.test(p) },
+  { label: 'One lowercase letter', test: (p: string) => /[a-z]/.test(p) },
+  { label: 'One number', test: (p: string) => /[0-9]/.test(p) },
+  {
+    label: 'One special character',
+    test: (p: string) => /[^A-Za-z0-9]/.test(p),
+  },
+];
+
 export default function SignupScreen({ navigation }: Props) {
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [generalError, setGeneralError] = useState('');
+  const [passwordTouched, setPasswordTouched] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       return () => {
-        setName('');
         setEmail('');
         setPassword('');
+        setConfirmPassword('');
         setErrors({});
-        setGeneralError('');
+        setPasswordTouched(false);
       };
-    }, [])
+    }, []),
   );
 
   const handleSignup = async () => {
-    // Reset errors
     setErrors({});
-    setGeneralError('');
 
-    // Check for empty fields first (User preference)
-    if (!name || !email || !password) {
-      setGeneralError('Please fill in all fields');
+    const fieldErrors: Record<string, string> = {};
+    if (!email) fieldErrors.email = 'Email is required';
+    if (!password) fieldErrors.password = 'Password is required';
+    if (!confirmPassword)
+      fieldErrors.confirmPassword = 'Please confirm your password';
+    if (Object.keys(fieldErrors).length > 0) {
+      setErrors(fieldErrors);
       return;
     }
 
-    const result = signupSchema.safeParse({ name, email, password });
-
+    const result = signupSchema.safeParse({ email, password, confirmPassword });
     if (!result.success) {
-      const fieldErrors: Record<string, string> = {};
+      const zodErrors: Record<string, string> = {};
       result.error.issues.forEach(issue => {
-        fieldErrors[issue.path[0] as string] = issue.message;
+        const field = issue.path[0] as string;
+        if (!zodErrors[field]) zodErrors[field] = issue.message;
       });
-      setErrors(fieldErrors);
+      setErrors(zodErrors);
       return;
     }
 
@@ -70,12 +83,11 @@ export default function SignupScreen({ navigation }: Props) {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: name } },
     });
     setLoading(false);
 
     if (error) {
-      setGeneralError(error.message);
+      Alert.alert('Sign Up Failed', error.message);
     } else {
       Alert.alert(
         'Success',
@@ -91,90 +103,114 @@ export default function SignupScreen({ navigation }: Props) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          disabled={loading}
-        >
-          <Text style={styles.backArrow}>←</Text>
-        </TouchableOpacity>
-
-        <View style={styles.header}>
-          <Text style={styles.welcomeText}>Create Account</Text>
-          <Text style={styles.subText}>Join ORTQ today and get started</Text>
-        </View>
-
-        <View style={styles.form}>
-          <CustomInput
-            label="Full Name"
-            placeholder="Enter your name"
-            value={name}
-            onChangeText={text => {
-              setName(text);
-              if (errors.name) setErrors(prev => ({ ...prev, name: '' }));
-              setGeneralError('');
-            }}
-            error={errors.name}
-            editable={!loading}
-          />
-
-          <CustomInput
-            label="Email Address"
-            placeholder="name@example.com"
-            value={email}
-            onChangeText={text => {
-              setEmail(text);
-              if (errors.email) setErrors(prev => ({ ...prev, email: '' }));
-              setGeneralError('');
-            }}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            error={errors.email}
-            editable={!loading}
-          />
-
-          <CustomInput
-            label="Password"
-            placeholder="Create a password"
-            value={password}
-            onChangeText={text => {
-              setPassword(text);
-              if (errors.password)
-                setErrors(prev => ({ ...prev, password: '' }));
-              setGeneralError('');
-            }}
-            isPassword
-            error={errors.password}
-            editable={!loading}
-          />
-
-          {generalError ? (
-            <View style={styles.generalErrorContainer}>
-              <Text style={styles.generalErrorText}>{generalError}</Text>
-            </View>
-          ) : null}
-
+        <ScrollView contentContainerStyle={styles.scrollContent}>
           <TouchableOpacity
-            style={[styles.signupButton, loading && styles.disabledButton]}
-            onPress={handleSignup}
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
             disabled={loading}
           >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.signupButtonText}>Sign Up</Text>
-            )}
+            <Text style={styles.backArrow}>←</Text>
           </TouchableOpacity>
 
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Already have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Text style={styles.linkText}>Sign In</Text>
-            </TouchableOpacity>
+          <View style={styles.header}>
+            <Text style={styles.welcomeText}>Create Account</Text>
+            <Text style={styles.subText}>Join ORTQ today and get started</Text>
           </View>
-        </View>
-      </ScrollView>
+
+          <View style={styles.form}>
+            <CustomInput
+              label="Email Address"
+              placeholder="m@example.com"
+              value={email}
+              onChangeText={text => {
+                setEmail(text);
+                if (errors.email) setErrors(prev => ({ ...prev, email: '' }));
+              }}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              error={errors.email}
+              editable={!loading}
+            />
+
+            <View>
+              <CustomInput
+                label="Password"
+                placeholder="********"
+                value={password}
+                onChangeText={text => {
+                  setPassword(text);
+                  setPasswordTouched(true);
+                  if (errors.password)
+                    setErrors(prev => ({ ...prev, password: '' }));
+                }}
+                isPassword
+                error={errors.password}
+                editable={!loading}
+              />
+
+              {passwordTouched && (
+                <View style={styles.rulesWrap}>
+                  {PASSWORD_RULES.map(rule => {
+                    const passed = rule.test(password);
+                    return (
+                      <View key={rule.label} style={styles.ruleRow}>
+                        <Text
+                          style={[
+                            styles.ruleDot,
+                            passed ? styles.rulePassed : styles.ruleFailed,
+                          ]}
+                        >
+                          {passed ? '✓' : '✗'}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.ruleLabel,
+                            passed ? styles.rulePassed : styles.ruleFailed,
+                          ]}
+                        >
+                          {rule.label}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
+
+            <CustomInput
+              label="Confirm Password"
+              placeholder="********"
+              value={confirmPassword}
+              onChangeText={text => {
+                setConfirmPassword(text);
+                if (errors.confirmPassword)
+                  setErrors(prev => ({ ...prev, confirmPassword: '' }));
+              }}
+              isPassword
+              error={errors.confirmPassword}
+              editable={!loading}
+            />
+
+            <TouchableOpacity
+              style={[styles.signupButton, loading && styles.disabledButton]}
+              onPress={handleSignup}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.signupButtonText}>Sign Up</Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>Already have an account? </Text>
+              <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                <Text style={styles.linkText}>Sign In</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -219,18 +255,29 @@ const styles = StyleSheet.create({
   form: {
     gap: 24,
   },
-  generalErrorContainer: {
-    backgroundColor: '#FFF5F5',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FFEBEB',
+  rulesWrap: {
+    marginTop: 10,
+    gap: 6,
+    paddingLeft: 4,
   },
-  generalErrorText: {
-    color: Colors.error,
+  ruleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  ruleDot: {
+    fontSize: 13,
+    fontFamily: Fonts.firaSansBold,
+  },
+  ruleLabel: {
+    fontSize: 13,
     fontFamily: Fonts.firaSansRegular,
-    fontSize: 14,
-    textAlign: 'center',
+  },
+  rulePassed: {
+    color: Colors.success,
+  },
+  ruleFailed: {
+    color: '#9AA0A6',
   },
   signupButton: {
     height: 56,
