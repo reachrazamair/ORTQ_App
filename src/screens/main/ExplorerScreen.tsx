@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -6,6 +6,8 @@ import {
   Image,
   Linking,
   Modal,
+  PermissionsAndroid,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,9 +16,22 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import Config from 'react-native-config';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
+import { supabase } from '../../lib/supabase';
+import { getProfile } from '../../lib/profile';
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const PAGE_SIZE = 20;
+const STORAGE_BASE = `${Config.SUPABASE_URL}/storage/v1/object/public/trails_images/`;
+const DISTANCE_OPTIONS = [50, 100, 150, 200, 250, 300, 350, 400];
+const STATUS_OPTIONS = ['All', 'locked', 'unlocked', 'completed'] as const;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -31,14 +46,14 @@ type HiddenPoint = {
   points_awarded: number;
 };
 
+// Matches what get_trails_nearby_paginated actually returns
 type Trail = {
   id: string;
   name: string;
-  image_url: string;
+  image_url: string | null;
   user_trail_status: TrailStatus;
-  trail_types: Array<{ name: string; color: string }>;
+  trail_types: string[];
   difficulty: string;
-  difficulty_color: string;
   city: string;
   state: string;
   distance_meters: number | null;
@@ -53,155 +68,62 @@ type Trail = {
   hidden_point: HiddenPoint | null;
 };
 
-// ---------------------------------------------------------------------------
-// Mock data
-// ---------------------------------------------------------------------------
+type Variant = { id: string; name: string; color: string };
+type BaseVariant = { id: string; name: string };
 
-const MOCK_TRAILS: Trail[] = [
-  {
-    id: '1',
-    name: 'Black Bear Pass',
-    image_url: 'https://picsum.photos/seed/trail1/600/300',
-    user_trail_status: 'completed',
-    trail_types: [{ name: 'Rock Crawling', color: '#7C3AED' }],
-    difficulty: 'Expert',
-    difficulty_color: '#DC2626',
-    city: 'Telluride',
-    state: 'CO',
-    distance_meters: 4800,
-    vehicle_types: ['4x4', 'High Clearance'],
-    overview:
-      'One of the most infamous trails in Colorado. Black Bear Pass offers stunning views of Telluride and a technical descent that challenges even experienced off-roaders.',
-    permit_requierd: null,
-    trail_shape: 'Point to Point',
-    typically_open: 'July – September',
-    distance_tolerance: 50,
-    navigation_details:
-      'From Telluride, head south on Hwy 145. Turn at the Black Bear Pass sign. The descent is one-way — do not attempt in poor weather.',
-    keys_to_unlock: 2,
-    hidden_point: { latitude: 37.9358, longitude: -107.8123, keys_awarded: 3, points_awarded: 500 },
-  },
-  {
-    id: '2',
-    name: 'Moab Rim Trail',
-    image_url: 'https://picsum.photos/seed/trail2/600/300',
-    user_trail_status: 'unlocked',
-    trail_types: [
-      { name: 'Rock Crawling', color: '#7C3AED' },
-      { name: 'Scenic', color: '#059669' },
-    ],
-    difficulty: 'Hard',
-    difficulty_color: '#D97706',
-    city: 'Moab',
-    state: 'UT',
-    distance_meters: 9600,
-    vehicle_types: ['4x4', 'Jeep', 'SUV'],
-    overview:
-      'The Moab Rim Trail offers challenging rock crawling with breathtaking views of the Colorado River. A must-do for serious off-roaders visiting Moab.',
-    permit_requierd: 'https://www.recreation.gov/permits/moab',
-    trail_shape: 'Loop',
-    typically_open: 'March – November',
-    distance_tolerance: 75,
-    navigation_details:
-      'Trailhead is located on Kane Creek Blvd. The first obstacle is a steep ledge climb. Lockers recommended.',
-    keys_to_unlock: 1,
-    hidden_point: {
-      latitude: 38.5733,
-      longitude: -109.5498,
-      keys_awarded: 2,
-      points_awarded: 350,
-    },
-  },
-  {
-    id: '3',
-    name: 'Rubicon Trail',
-    image_url: 'https://picsum.photos/seed/trail3/600/300',
-    user_trail_status: 'locked',
-    trail_types: [{ name: 'Rock Crawling', color: '#7C3AED' }],
-    difficulty: 'Expert',
-    difficulty_color: '#DC2626',
-    city: 'Georgetown',
-    state: 'CA',
-    distance_meters: 22500,
-    vehicle_types: ['4x4', 'High Clearance'],
-    overview:
-      'The legendary Rubicon Trail is considered one of the most challenging off-road trails in the US. This 22-mile adventure through the Sierra Nevada is iconic.',
-    permit_requierd: null,
-    trail_shape: 'Point to Point',
-    typically_open: 'July – October',
-    distance_tolerance: 100,
-    navigation_details: null,
-    keys_to_unlock: 3,
-    hidden_point: null,
-  },
-  {
-    id: '4',
-    name: 'Imogene Pass',
-    image_url: 'https://picsum.photos/seed/trail4/600/300',
-    user_trail_status: 'locked',
-    trail_types: [
-      { name: 'Scenic', color: '#059669' },
-      { name: 'High Altitude', color: '#0284C7' },
-    ],
-    difficulty: 'Moderate',
-    difficulty_color: '#CA8A04',
-    city: 'Ouray',
-    state: 'CO',
-    distance_meters: 6400,
-    vehicle_types: ['4x4', 'SUV', 'Truck'],
-    overview:
-      'Imogene Pass connects Ouray and Telluride at 13,114 feet. The views are spectacular and the drive is manageable for most 4x4 vehicles.',
-    permit_requierd: null,
-    trail_shape: 'Point to Point',
-    typically_open: 'July – September',
-    distance_tolerance: 60,
-    navigation_details: null,
-    keys_to_unlock: 1,
-    hidden_point: null,
-  },
-  {
-    id: '5',
-    name: 'Fins & Things',
-    image_url: 'https://picsum.photos/seed/trail5/600/300',
-    user_trail_status: 'locked',
-    trail_types: [
-      { name: 'Rock Crawling', color: '#7C3AED' },
-      { name: 'Sand', color: '#B45309' },
-    ],
-    difficulty: 'Hard',
-    difficulty_color: '#D97706',
-    city: 'Moab',
-    state: 'UT',
-    distance_meters: 11200,
-    vehicle_types: ['4x4', 'Jeep'],
-    overview:
-      'Fins & Things is a classic Moab trail offering a variety of slickrock obstacles, ledges, and scenic desert terrain. Great for intermediate to advanced drivers.',
-    permit_requierd: null,
-    trail_shape: 'Loop',
-    typically_open: 'Year Round',
-    distance_tolerance: 80,
-    navigation_details: null,
-    keys_to_unlock: 2,
-    hidden_point: null,
-  },
-];
+type Variants = {
+  trail_types: Variant[];
+  difficulty_levels: Variant[];
+  states: BaseVariant[];
+};
 
-const STATUS_FILTERS = ['All', 'locked', 'unlocked', 'completed'] as const;
-type StatusFilter = (typeof STATUS_FILTERS)[number];
+type Filters = {
+  stateId: string | null;
+  cityId: string | null;
+  difficultyId: string | null;
+  trailTypeId: string | null;
+  status: string | null;
+  distanceMeters: number | null;
+};
 
-const MOCK_USER_KEYS = 4;
-const HAS_LOCATION = true; // set false to preview no-location state
+const DEFAULT_FILTERS: Filters = {
+  stateId: null,
+  cityId: null,
+  difficultyId: null,
+  trailTypeId: null,
+  status: null,
+  distanceMeters: null,
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function metersToMiles(meters: number) {
-  return meters / 1609.344;
+function metersToMiles(m: number) {
+  return m / 1609.344;
+}
+
+function milesToMeters(miles: number) {
+  return Math.round(miles * 1609.344);
+}
+
+function getTrailImageUrl(imageUrl: string | null): string {
+  if (!imageUrl) return 'https://placehold.co/600x300/e2e8f0/94a3b8?text=Trail';
+  if (imageUrl.startsWith('http')) return imageUrl;
+  return `${STORAGE_BASE}${imageUrl}`;
+}
+
+function getContrastColor(hex: string): string {
+  if (!hex || !hex.startsWith('#')) return '#fff';
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.5 ? '#1C1C1C' : '#FFFFFF';
 }
 
 function getStatusColor(status: TrailStatus) {
-  if (status === 'completed') return Colors.green;
+  if (status === 'completed') return '#22C55E';
   if (status === 'unlocked') return '#3B82F6';
   return '#9AA0A6';
 }
@@ -212,30 +134,70 @@ function getStatusIconName(status: TrailStatus) {
   return 'lock-closed';
 }
 
-function getContrastColor(hex: string) {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.5 ? '#1C1C1C' : '#FFFFFF';
+function getTrailTypeColor(name: string, variants: Variants): string {
+  return variants.trail_types.find(t => t.name.toLowerCase() === name.toLowerCase())?.color ?? '#9AA0A6';
+}
+
+function getDifficultyColor(name: string, variants: Variants): string {
+  return variants.difficulty_levels.find(d => d.name.toLowerCase() === name.toLowerCase())?.color ?? '#9AA0A6';
 }
 
 // ---------------------------------------------------------------------------
-// No Access Location
+// Location helpers
 // ---------------------------------------------------------------------------
 
-function NoAccessLocation() {
+async function requestAndroidLocationPermission(): Promise<boolean> {
+  try {
+    const granted = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+      {
+        title: 'Location Permission',
+        message: 'ORTQ needs your location to show nearby trails.',
+        buttonNeutral: 'Ask Me Later',
+        buttonNegative: 'Cancel',
+        buttonPositive: 'OK',
+      },
+    );
+    return granted === PermissionsAndroid.RESULTS.GRANTED;
+  } catch {
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+function NoAccessLocation({ onSettings }: { onSettings: () => void }) {
   return (
     <View style={styles.noLocationWrap}>
       <Icon name="location-outline" size={48} color="#9AA0A6" />
       <Text style={styles.noLocationTitle}>We need your location</Text>
       <Text style={styles.noLocationBody}>
-        To show nearby trails, allow location access or add your address in Profile.
+        To show nearby trails, allow location access or enable it in Settings.
       </Text>
-      <TouchableOpacity style={styles.noLocationBtn}>
-        <Text style={styles.noLocationBtnText}>Add Address in Profile</Text>
+      <TouchableOpacity style={styles.noLocationBtn} onPress={onSettings}>
+        <Text style={styles.noLocationBtnText}>Open Settings</Text>
       </TouchableOpacity>
       <Text style={styles.noLocationNote}>We never sell your data.</Text>
+    </View>
+  );
+}
+
+function DetailRow({ icon, color, children }: { icon: string; color: string; children: React.ReactNode }) {
+  return (
+    <View style={styles.detailRow}>
+      <Icon name={icon} size={16} color={color} style={styles.detailRowIcon} />
+      <Text style={styles.detailRowText}>{children}</Text>
+    </View>
+  );
+}
+
+function CardRow({ icon, children }: { icon: string; children: React.ReactNode }) {
+  return (
+    <View style={styles.cardRow}>
+      <Icon name={icon} size={14} color={Colors.orange} style={styles.cardRowIcon} />
+      <Text style={styles.cardRowText}>{children}</Text>
     </View>
   );
 }
@@ -246,10 +208,12 @@ function NoAccessLocation() {
 
 function TrailDetailModal({
   trail,
+  variants,
   visible,
   onClose,
 }: {
   trail: Trail | null;
+  variants: Variants;
   visible: boolean;
   onClose: () => void;
 }) {
@@ -266,78 +230,54 @@ function TrailDetailModal({
 
   const handleCopyCoords = () => {
     if (!hidden_point) return;
-    Alert.alert('Copied', `${hidden_point.latitude.toFixed(4)}, ${hidden_point.longitude.toFixed(4)}`);
+    Alert.alert('Coordinates', `${hidden_point.latitude.toFixed(4)}, ${hidden_point.longitude.toFixed(4)}`);
   };
 
-  const handleOpenPermit = () => {
-    if (trail.permit_requierd && trail.permit_requierd.startsWith('http')) {
-      Linking.openURL(trail.permit_requierd);
-    }
-  };
-
-  const isPermitUrl =
-    trail.permit_requierd && trail.permit_requierd.startsWith('http');
+  const isPermitUrl = trail.permit_requierd?.startsWith('http');
+  const diffColor = getDifficultyColor(trail.difficulty, variants);
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.detailOverlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={styles.detailSheet}>
-          {/* Image */}
           <View style={styles.detailImageWrap}>
-            <Image source={{ uri: trail.image_url }} style={styles.detailImage} />
+            <Image source={{ uri: getTrailImageUrl(trail.image_url) }} style={styles.detailImage} />
             {isLocked && (
               <View style={styles.detailImageOverlay}>
                 <Icon name="lock-closed" size={40} color="rgba(255,255,255,0.7)" />
               </View>
             )}
-            {/* Close button */}
             <TouchableOpacity style={styles.detailCloseBtn} onPress={onClose}>
               <Icon name="close" size={20} color={Colors.blueGrey} />
             </TouchableOpacity>
           </View>
 
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.detailScroll}
-          >
-            {/* Title + status */}
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.detailScroll}>
             <View style={styles.detailTitleRow}>
-              <Text style={[styles.detailTitle, isLocked && styles.detailTitleLocked]}>
+              <Text style={[styles.detailTitle, isLocked && styles.detailTitleLocked]} numberOfLines={2}>
                 {isLocked ? 'Locked Trail — Unlock for Details' : trail.name}
               </Text>
-              <Icon
-                name={getStatusIconName(trail.user_trail_status)}
-                size={20}
-                color={getStatusColor(trail.user_trail_status)}
-              />
+              <Icon name={getStatusIconName(trail.user_trail_status)} size={20} color={getStatusColor(trail.user_trail_status)} />
             </View>
 
-            {/* Badges */}
             <View style={styles.detailBadgeRow}>
-              {trail.trail_types.map(tt => (
-                <View
-                  key={tt.name}
-                  style={[styles.badge, { backgroundColor: tt.color }]}
-                >
-                  <Icon name="triangle-outline" size={11} color={getContrastColor(tt.color)} />
-                  <Text style={[styles.badgeText, { color: getContrastColor(tt.color) }]}>
-                    {tt.name}
-                  </Text>
-                </View>
-              ))}
-              <View style={[styles.badge, { backgroundColor: trail.difficulty_color }]}>
-                <Icon name="flash-outline" size={11} color={getContrastColor(trail.difficulty_color)} />
-                <Text style={[styles.badgeText, { color: getContrastColor(trail.difficulty_color) }]}>
-                  {trail.difficulty}
-                </Text>
+              {trail.trail_types.map(typeName => {
+                const color = getTrailTypeColor(typeName, variants);
+                return (
+                  <View key={typeName} style={[styles.badge, { backgroundColor: color }]}>
+                    <Icon name="triangle-outline" size={11} color={getContrastColor(color)} />
+                    <Text style={[styles.badgeText, { color: getContrastColor(color) }]}>{typeName}</Text>
+                  </View>
+                );
+              })}
+              <View style={[styles.badge, { backgroundColor: diffColor }]}>
+                <Icon name="flash-outline" size={11} color={getContrastColor(diffColor)} />
+                <Text style={[styles.badgeText, { color: getContrastColor(diffColor) }]}>{trail.difficulty}</Text>
               </View>
             </View>
 
-            {/* Info rows */}
-            <DetailRow icon="location-outline" color={Colors.orange}>
-              {trail.city}, {trail.state}
-            </DetailRow>
+            <DetailRow icon="location-outline" color={Colors.orange}>{trail.city}, {trail.state}</DetailRow>
 
             {trail.distance_meters !== null && (
               <DetailRow icon="compass-outline" color={Colors.orange}>
@@ -347,8 +287,7 @@ function TrailDetailModal({
 
             {trail.vehicle_types.length > 0 && (
               <DetailRow icon="car-outline" color={Colors.orange}>
-                <Text style={styles.detailLabel}>Vehicles: </Text>
-                {trail.vehicle_types.join(', ')}
+                <Text style={styles.detailLabel}>Vehicles: </Text>{trail.vehicle_types.join(', ')}
               </DetailRow>
             )}
 
@@ -364,41 +303,33 @@ function TrailDetailModal({
               <DetailRow icon="ticket-outline" color={Colors.orange}>
                 <Text style={styles.detailLabel}>Permit: </Text>
                 {isPermitUrl ? (
-                  <TouchableOpacity onPress={handleOpenPermit}>
+                  <TouchableOpacity onPress={() => Linking.openURL(trail.permit_requierd!)}>
                     <Text style={styles.detailLink}>Required — View Details</Text>
                   </TouchableOpacity>
-                ) : (
-                  trail.permit_requierd
-                )}
+                ) : trail.permit_requierd}
               </DetailRow>
             )}
 
             <DetailRow icon="shapes-outline" color={Colors.orange}>
-              <Text style={styles.detailLabel}>Shape: </Text>
-              {trail.trail_shape}
+              <Text style={styles.detailLabel}>Shape: </Text>{trail.trail_shape}
             </DetailRow>
 
             <DetailRow icon="calendar-outline" color={Colors.orange}>
-              <Text style={styles.detailLabel}>Open: </Text>
-              {trail.typically_open}
+              <Text style={styles.detailLabel}>Open: </Text>{trail.typically_open}
             </DetailRow>
 
             {!isLocked && (
               <DetailRow icon="radio-button-on-outline" color={Colors.orange}>
-                <Text style={styles.detailLabel}>Tolerance: </Text>
-                {trail.distance_tolerance} m
+                <Text style={styles.detailLabel}>Tolerance: </Text>{trail.distance_tolerance} m
               </DetailRow>
             )}
 
             {!isLocked && hidden_point && (
               <DetailRow icon="key-outline" color={Colors.orange}>
-                <Text style={styles.detailLabel}>Keys: </Text>
-                {hidden_point.keys_awarded}
+                <Text style={styles.detailLabel}>Keys: </Text>{hidden_point.keys_awarded}
                 {'   '}
-                <Icon name="trophy-outline" size={14} color="#CA8A04" />
-                {'  '}
-                <Text style={styles.detailLabel}>Points: </Text>
-                {hidden_point.points_awarded}
+                <Icon name="trophy-outline" size={14} color="#CA8A04" />{'  '}
+                <Text style={styles.detailLabel}>Points: </Text>{hidden_point.points_awarded}
               </DetailRow>
             )}
 
@@ -437,49 +368,32 @@ function TrailDetailModal({
   );
 }
 
-function DetailRow({
-  icon,
-  color,
-  children,
-}: {
-  icon: string;
-  color: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <View style={styles.detailRow}>
-      <Icon name={icon} size={16} color={color} style={styles.detailRowIcon} />
-      <Text style={styles.detailRowText}>{children}</Text>
-    </View>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Trail Card
 // ---------------------------------------------------------------------------
 
 function TrailCard({
   trail,
+  variants,
+  userKeys,
   onShowMore,
+  onUnlock,
 }: {
   trail: Trail;
-  onShowMore: (trail: Trail) => void;
+  variants: Variants;
+  userKeys: number;
+  onShowMore: (t: Trail) => void;
+  onUnlock: (t: Trail) => void;
 }) {
   const isLocked = trail.user_trail_status === 'locked';
   const { hidden_point } = trail;
-  const canUnlock = MOCK_USER_KEYS >= trail.keys_to_unlock;
-
-  const handleOpenMaps = () => {
-    if (!hidden_point) return;
-    const url = `https://www.google.com/maps/search/?api=1&query=${hidden_point.latitude},${hidden_point.longitude}`;
-    Linking.openURL(url);
-  };
+  const canUnlock = userKeys >= trail.keys_to_unlock;
+  const diffColor = getDifficultyColor(trail.difficulty, variants);
 
   return (
     <View style={styles.card}>
-      {/* Image */}
       <View style={styles.cardImageWrap}>
-        <Image source={{ uri: trail.image_url }} style={styles.cardImage} />
+        <Image source={{ uri: getTrailImageUrl(trail.image_url) }} style={styles.cardImage} />
         {isLocked && (
           <>
             <View style={styles.cardImageOverlay} />
@@ -491,50 +405,31 @@ function TrailCard({
         )}
       </View>
 
-      {/* Header */}
       <View style={styles.cardHeader}>
-        <Text
-          style={[styles.cardTitle, isLocked && styles.cardTitleLocked]}
-          numberOfLines={2}
-        >
+        <Text style={[styles.cardTitle, isLocked && styles.cardTitleLocked]} numberOfLines={2}>
           {isLocked ? 'Locked Trail' : trail.name}
         </Text>
-        <Icon
-          name={getStatusIconName(trail.user_trail_status)}
-          size={18}
-          color={getStatusColor(trail.user_trail_status)}
-        />
+        <Icon name={getStatusIconName(trail.user_trail_status)} size={18} color={getStatusColor(trail.user_trail_status)} />
       </View>
 
-      {/* Badges */}
       <View style={styles.cardBadgeRow}>
-        {trail.trail_types.map(tt => (
-          <View key={tt.name} style={[styles.badge, { backgroundColor: tt.color }]}>
-            <Icon name="triangle-outline" size={10} color={getContrastColor(tt.color)} />
-            <Text style={[styles.badgeText, { color: getContrastColor(tt.color) }]}>
-              {tt.name}
-            </Text>
-          </View>
-        ))}
-        <View style={[styles.badge, { backgroundColor: trail.difficulty_color }]}>
-          <Icon
-            name="flash-outline"
-            size={10}
-            color={getContrastColor(trail.difficulty_color)}
-          />
-          <Text
-            style={[styles.badgeText, { color: getContrastColor(trail.difficulty_color) }]}
-          >
-            {trail.difficulty}
-          </Text>
+        {trail.trail_types.map(typeName => {
+          const color = getTrailTypeColor(typeName, variants);
+          return (
+            <View key={typeName} style={[styles.badge, { backgroundColor: color }]}>
+              <Icon name="triangle-outline" size={10} color={getContrastColor(color)} />
+              <Text style={[styles.badgeText, { color: getContrastColor(color) }]}>{typeName}</Text>
+            </View>
+          );
+        })}
+        <View style={[styles.badge, { backgroundColor: diffColor }]}>
+          <Icon name="flash-outline" size={10} color={getContrastColor(diffColor)} />
+          <Text style={[styles.badgeText, { color: getContrastColor(diffColor) }]}>{trail.difficulty}</Text>
         </View>
       </View>
 
-      {/* Info */}
       <View style={styles.cardBody}>
-        <CardRow icon="location-outline">
-          {trail.city}, {trail.state}
-        </CardRow>
+        <CardRow icon="location-outline">{trail.city}, {trail.state}</CardRow>
 
         {trail.distance_meters !== null && (
           <CardRow icon="compass-outline">
@@ -544,41 +439,32 @@ function TrailCard({
 
         {trail.vehicle_types.length > 0 && (
           <CardRow icon="car-outline">
-            <Text style={styles.cardRowLabel}>Vehicles: </Text>
-            {trail.vehicle_types.join(', ')}
+            <Text style={styles.cardRowLabel}>Vehicles: </Text>{trail.vehicle_types.join(', ')}
           </CardRow>
         )}
 
-        {/* Overview */}
         <View style={styles.cardSection}>
           <View style={styles.cardSectionHeader}>
             <Icon name="document-text-outline" size={14} color={Colors.orange} />
             <Text style={styles.cardSectionTitle}>Overview</Text>
           </View>
-          <Text style={styles.cardOverview} numberOfLines={2}>
-            {trail.overview}
-          </Text>
+          <Text style={styles.cardOverview} numberOfLines={2}>{trail.overview}</Text>
         </View>
 
         <CardRow icon="shapes-outline">
-          <Text style={styles.cardRowLabel}>Shape: </Text>
-          {trail.trail_shape}
+          <Text style={styles.cardRowLabel}>Shape: </Text>{trail.trail_shape}
         </CardRow>
 
         <CardRow icon="calendar-outline">
-          <Text style={styles.cardRowLabel}>Open: </Text>
-          {trail.typically_open}
+          <Text style={styles.cardRowLabel}>Open: </Text>{trail.typically_open}
         </CardRow>
 
         {!isLocked && hidden_point && (
           <CardRow icon="key-outline">
-            <Text style={styles.cardRowLabel}>Keys: </Text>
-            {hidden_point.keys_awarded}
+            <Text style={styles.cardRowLabel}>Keys: </Text>{hidden_point.keys_awarded}
             {'   '}
-            <Icon name="trophy-outline" size={13} color="#CA8A04" />
-            {'  '}
-            <Text style={styles.cardRowLabel}>Points: </Text>
-            {hidden_point.points_awarded}
+            <Icon name="trophy-outline" size={13} color="#CA8A04" />{'  '}
+            <Text style={styles.cardRowLabel}>Points: </Text>{hidden_point.points_awarded}
           </CardRow>
         )}
 
@@ -588,7 +474,10 @@ function TrailCard({
               <Icon name="globe-outline" size={14} color={Colors.orange} />
               <Text style={styles.cardSectionTitle}>Points Location</Text>
             </View>
-            <TouchableOpacity onPress={handleOpenMaps}>
+            <TouchableOpacity onPress={() => {
+              const url = `https://www.google.com/maps/search/?api=1&query=${hidden_point.latitude},${hidden_point.longitude}`;
+              Linking.openURL(url);
+            }}>
               <Text style={[styles.cardOverview, styles.detailLink]}>
                 {hidden_point.latitude.toFixed(4)}, {hidden_point.longitude.toFixed(4)}
               </Text>
@@ -602,9 +491,7 @@ function TrailCard({
               <Icon name="map-outline" size={14} color={Colors.orange} />
               <Text style={styles.cardSectionTitle}>Navigation Tips</Text>
             </View>
-            <Text style={styles.cardOverview} numberOfLines={2}>
-              {trail.navigation_details}
-            </Text>
+            <Text style={styles.cardOverview} numberOfLines={2}>{trail.navigation_details}</Text>
           </View>
         )}
 
@@ -613,10 +500,8 @@ function TrailCard({
         </TouchableOpacity>
       </View>
 
-      {/* Divider */}
       <View style={styles.cardDivider} />
 
-      {/* Footer actions */}
       <View style={styles.cardFooter}>
         {trail.user_trail_status === 'completed' && (
           <TouchableOpacity style={[styles.footerBtn, styles.footerBtnPrimary]}>
@@ -633,7 +518,7 @@ function TrailCard({
         )}
 
         {isLocked && canUnlock && (
-          <TouchableOpacity style={[styles.footerBtn, styles.footerBtnUnlock]}>
+          <TouchableOpacity style={[styles.footerBtn, styles.footerBtnUnlock]} onPress={() => onUnlock(trail)}>
             <Icon name="key-outline" size={15} color="#fff" />
             <Text style={styles.footerBtnText}>
               Unlock Trail ({trail.keys_to_unlock} Key{trail.keys_to_unlock > 1 ? 's' : ''})
@@ -652,49 +537,206 @@ function TrailCard({
   );
 }
 
-function CardRow({ icon, children }: { icon: string; children: React.ReactNode }) {
-  return (
-    <View style={styles.cardRow}>
-      <Icon name={icon} size={14} color={Colors.orange} style={styles.cardRowIcon} />
-      <Text style={styles.cardRowText}>{children}</Text>
-    </View>
-  );
-}
-
 // ---------------------------------------------------------------------------
-// Filter chips
+// Filter Modal
 // ---------------------------------------------------------------------------
 
-function FilterSection({
-  selectedStatus,
-  onStatusChange,
+function FilterModal({
+  visible,
+  variants,
+  cities,
+  filters,
+  onApply,
+  onClose,
+  onStateChange,
 }: {
-  selectedStatus: StatusFilter;
-  onStatusChange: (s: StatusFilter) => void;
+  visible: boolean;
+  variants: Variants;
+  cities: BaseVariant[];
+  filters: Filters;
+  onApply: (f: Filters) => void;
+  onClose: () => void;
+  onStateChange: (stateId: string | null) => void;
 }) {
+  const [local, setLocal] = useState<Filters>(filters);
+
+  useEffect(() => { setLocal(filters); }, [filters, visible]);
+
+  const set = (key: keyof Filters, val: any) =>
+    setLocal(prev => ({ ...prev, [key]: val }));
+
+  const handleStateSelect = (id: string | null) => {
+    set('stateId', id);
+    set('cityId', null);
+    onStateChange(id);
+  };
+
+  const handleReset = () => {
+    const empty = { ...DEFAULT_FILTERS };
+    setLocal(empty);
+    onStateChange(null);
+  };
+
   return (
-    <View style={styles.filterWrap}>
-      <Text style={styles.filterLabel}>Trail Status</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filterChips}
-      >
-        {STATUS_FILTERS.map(s => (
-          <TouchableOpacity
-            key={s}
-            style={[styles.chip, selectedStatus === s && styles.chipActive]}
-            onPress={() => onStatusChange(s)}
-          >
-            <Text
-              style={[styles.chipText, selectedStatus === s && styles.chipTextActive]}
-            >
-              {s === 'All' ? 'Any Status' : s.charAt(0).toUpperCase() + s.slice(1)}
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={styles.filterOverlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View style={styles.filterSheet}>
+          <View style={styles.filterHeader}>
+            <Text style={styles.filterTitle}>Search Trails</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Icon name="close" size={22} color={Colors.blueGrey} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+
+            {/* State */}
+            <Text style={styles.filterSectionLabel}>State</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterChipScroll}>
+              <View style={styles.filterChipRow}>
+                <TouchableOpacity
+                  style={[styles.filterChip, !local.stateId && styles.filterChipActive]}
+                  onPress={() => handleStateSelect(null)}
+                >
+                  <Text style={[styles.filterChipText, !local.stateId && styles.filterChipTextActive]}>Any</Text>
+                </TouchableOpacity>
+                {variants.states.map(s => (
+                  <TouchableOpacity
+                    key={s.id}
+                    style={[styles.filterChip, local.stateId === s.id && styles.filterChipActive]}
+                    onPress={() => handleStateSelect(s.id)}
+                  >
+                    <Text style={[styles.filterChipText, local.stateId === s.id && styles.filterChipTextActive]}>{s.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+
+            {/* City */}
+            <Text style={[styles.filterSectionLabel, !local.stateId && styles.filterSectionLabelDisabled]}>City</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterChipScroll}>
+              <View style={styles.filterChipRow}>
+                <TouchableOpacity
+                  style={[styles.filterChip, !local.cityId && styles.filterChipActive]}
+                  onPress={() => set('cityId', null)}
+                  disabled={!local.stateId}
+                >
+                  <Text style={[styles.filterChipText, !local.cityId && styles.filterChipActive && styles.filterChipTextActive]}>Any</Text>
+                </TouchableOpacity>
+                {cities.map(c => (
+                  <TouchableOpacity
+                    key={c.id}
+                    style={[styles.filterChip, local.cityId === c.id && styles.filterChipActive]}
+                    onPress={() => set('cityId', c.id)}
+                    disabled={!local.stateId}
+                  >
+                    <Text style={[styles.filterChipText, local.cityId === c.id && styles.filterChipTextActive]}>{c.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+
+            {/* Distance */}
+            <Text style={[styles.filterSectionLabel, !local.cityId && styles.filterSectionLabelDisabled]}>
+              Max Distance
             </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterChipScroll}>
+              <View style={styles.filterChipRow}>
+                <TouchableOpacity
+                  style={[styles.filterChip, !local.distanceMeters && styles.filterChipActive]}
+                  onPress={() => set('distanceMeters', null)}
+                  disabled={!local.cityId}
+                >
+                  <Text style={[styles.filterChipText, !local.distanceMeters && styles.filterChipTextActive]}>Any</Text>
+                </TouchableOpacity>
+                {DISTANCE_OPTIONS.map(miles => (
+                  <TouchableOpacity
+                    key={miles}
+                    style={[styles.filterChip, local.distanceMeters === milesToMeters(miles) && styles.filterChipActive]}
+                    onPress={() => set('distanceMeters', milesToMeters(miles))}
+                    disabled={!local.cityId}
+                  >
+                    <Text style={[styles.filterChipText, local.distanceMeters === milesToMeters(miles) && styles.filterChipTextActive]}>
+                      {miles} mi
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+
+            {/* Difficulty */}
+            <Text style={styles.filterSectionLabel}>Difficulty</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterChipScroll}>
+              <View style={styles.filterChipRow}>
+                <TouchableOpacity
+                  style={[styles.filterChip, !local.difficultyId && styles.filterChipActive]}
+                  onPress={() => set('difficultyId', null)}
+                >
+                  <Text style={[styles.filterChipText, !local.difficultyId && styles.filterChipTextActive]}>Any</Text>
+                </TouchableOpacity>
+                {variants.difficulty_levels.map(d => (
+                  <TouchableOpacity
+                    key={d.id}
+                    style={[styles.filterChip, local.difficultyId === d.id && styles.filterChipActive]}
+                    onPress={() => set('difficultyId', d.id)}
+                  >
+                    <Text style={[styles.filterChipText, local.difficultyId === d.id && styles.filterChipTextActive]}>{d.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+
+            {/* Trail Type */}
+            <Text style={styles.filterSectionLabel}>Trail Type</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterChipScroll}>
+              <View style={styles.filterChipRow}>
+                <TouchableOpacity
+                  style={[styles.filterChip, !local.trailTypeId && styles.filterChipActive]}
+                  onPress={() => set('trailTypeId', null)}
+                >
+                  <Text style={[styles.filterChipText, !local.trailTypeId && styles.filterChipTextActive]}>Any</Text>
+                </TouchableOpacity>
+                {variants.trail_types.map(t => (
+                  <TouchableOpacity
+                    key={t.id}
+                    style={[styles.filterChip, local.trailTypeId === t.id && styles.filterChipActive]}
+                    onPress={() => set('trailTypeId', t.id)}
+                  >
+                    <Text style={[styles.filterChipText, local.trailTypeId === t.id && styles.filterChipTextActive]}>{t.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+
+            {/* Status */}
+            <Text style={styles.filterSectionLabel}>Trail Status</Text>
+            <View style={styles.filterChipRow}>
+              {STATUS_OPTIONS.map(s => (
+                <TouchableOpacity
+                  key={s}
+                  style={[styles.filterChip, (local.status === s || (s === 'All' && !local.status)) && styles.filterChipActive]}
+                  onPress={() => set('status', s === 'All' ? null : s)}
+                >
+                  <Text style={[styles.filterChipText, (local.status === s || (s === 'All' && !local.status)) && styles.filterChipTextActive]}>
+                    {s === 'All' ? 'Any' : s.charAt(0).toUpperCase() + s.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+
+          <View style={styles.filterActions}>
+            <TouchableOpacity style={styles.filterResetBtn} onPress={handleReset}>
+              <Text style={styles.filterResetText}>Reset</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.filterApplyBtn} onPress={() => onApply(local)}>
+              <Text style={styles.filterApplyText}>Search</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -703,26 +745,204 @@ function FilterSection({
 // ---------------------------------------------------------------------------
 
 export default function ExplorerScreen() {
+  const [trails, setTrails] = useState<Trail[]>([]);
+  const [variants, setVariants] = useState<Variants>({ trail_types: [], difficulty_levels: [], states: [] });
+  const [cities, setCities] = useState<BaseVariant[]>([]);
+  const [userKeys, setUserKeys] = useState(0);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [userLat, setUserLat] = useState<number | null>(null);
+  const [userLon, setUserLon] = useState<number | null>(null);
+  const [hasLocation, setHasLocation] = useState(false);
+  const [loadingLocation, setLoadingLocation] = useState(true);
+  const [loadingTrails, setLoadingTrails] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(0);
+  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState<StatusFilter>('All');
   const [selectedTrail, setSelectedTrail] = useState<Trail | null>(null);
-  const isLoading = false;
 
-  const filteredTrails = useMemo(() => {
-    if (selectedStatus === 'All') return MOCK_TRAILS;
-    return MOCK_TRAILS.filter(t => t.user_trail_status === selectedStatus);
-  }, [selectedStatus]);
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
 
-  const renderTrail = useCallback(
-    ({ item }: { item: Trail }) => (
-      <TrailCard trail={item} onShowMore={t => setSelectedTrail(t)} />
-    ),
-    [],
+  const hasMore = trails.length < totalCount && !loadingTrails;
+
+  // --- Init: get user + variants ---
+  useEffect(() => {
+    const init = async () => {
+      const [{ data: authData }, variantData] = await Promise.all([
+        supabase.auth.getUser(),
+        supabase.rpc('get_all_variants_about_trails'),
+      ]);
+
+      if (authData.user) {
+        setUserId(authData.user.id);
+        try {
+          const profile = await getProfile(authData.user.id);
+          if (profile) setUserKeys(profile.keys ?? 0);
+        } catch { /* non-blocking */ }
+      }
+
+      if (variantData.data) {
+        const v = variantData.data as any;
+        setVariants({
+          trail_types: v.trail_types ?? [],
+          difficulty_levels: v.difficulty_levels ?? [],
+          states: v.states ?? [],
+        });
+      }
+    };
+
+    init();
+  }, []);
+
+  // --- Location ---
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+
+      const getLocation = async () => {
+        if (Platform.OS === 'android') {
+          const ok = await requestAndroidLocationPermission();
+          if (!ok) { setLoadingLocation(false); return; }
+        }
+
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            if (cancelled) return;
+            setUserLat(pos.coords.latitude);
+            setUserLon(pos.coords.longitude);
+            setHasLocation(true);
+            setLoadingLocation(false);
+          },
+          () => {
+            if (cancelled) return;
+            setLoadingLocation(false);
+          },
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
+        );
+      };
+
+      getLocation();
+      return () => { cancelled = true; };
+    }, []),
   );
+
+  // --- Fetch trails ---
+  const loadPage = useCallback(async (pageNum: number, f: Filters, lat: number, lon: number, uid: string) => {
+    setLoadingTrails(true);
+    try {
+      const { data, error } = await supabase.rpc('get_trails_nearby_paginated', {
+        user_lat: lat,
+        user_lon: lon,
+        user_id: uid,
+        max_distance_meters: f.distanceMeters,
+        filter_state: f.stateId,
+        filter_city: f.cityId,
+        filter_difficulty: f.difficultyId,
+        filter_trail_type: f.trailTypeId,
+        filter_user_status: f.status,
+        limit_rows: PAGE_SIZE,
+        offset_rows: pageNum * PAGE_SIZE,
+      });
+
+      if (error) throw error;
+
+      const result = data as { totalCount: number; trails: Trail[] };
+      if (pageNum === 0) {
+        setTrails(result.trails ?? []);
+      } else {
+        setTrails(prev => [...prev, ...(result.trails ?? [])]);
+      }
+      setTotalCount(result.totalCount ?? 0);
+      setPage(pageNum);
+    } catch (err) {
+      console.error('[ExplorerScreen] loadPage failed:', err);
+    } finally {
+      setLoadingTrails(false);
+    }
+  }, []);
+
+  // Reload page 0 when location + userId are ready, or filters change
+  useEffect(() => {
+    if (userId && userLat !== null && userLon !== null) {
+      loadPage(0, filters, userLat, userLon, userId);
+    }
+  }, [userId, userLat, userLon, filters, loadPage]);
+
+  // --- Handlers ---
+  const handleApplyFilters = useCallback((f: Filters) => {
+    setFilters(f);
+    setShowFilters(false);
+  }, []);
+
+  const handleStateChange = useCallback(async (stateId: string | null) => {
+    setCities([]);
+    if (!stateId) return;
+    try {
+      const { data } = await supabase.rpc('get_all_cities_by_state', { state_id_arg: stateId });
+      setCities((data as BaseVariant[]) ?? []);
+    } catch { /* ignore */ }
+  }, []);
+
+  const handleLoadMore = useCallback(() => {
+    if (hasMore && userId && userLat !== null && userLon !== null) {
+      loadPage(page + 1, filters, userLat, userLon, userId);
+    }
+  }, [hasMore, userId, userLat, userLon, page, filters, loadPage]);
+
+  const handleUnlock = useCallback(async (trail: Trail) => {
+    if (!userId) return;
+
+    Alert.alert(
+      'Unlock Trail',
+      `Use ${trail.keys_to_unlock} key${trail.keys_to_unlock > 1 ? 's' : ''} to unlock this trail?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unlock',
+          onPress: async () => {
+            try {
+              const { data, error } = await supabase.rpc('unlock_trail2', {
+                p_user_id: userId,
+                p_trail_id: trail.id,
+              });
+              if (error) throw new Error(error.message);
+
+              setTrails(prev =>
+                prev.map(t =>
+                  t.id === trail.id ? { ...t, user_trail_status: 'unlocked', hidden_point: data } : t,
+                ),
+              );
+              const remaining = userKeys - trail.keys_to_unlock;
+              setUserKeys(remaining);
+              // Update detail modal if open
+              setSelectedTrail(prev =>
+                prev?.id === trail.id ? { ...prev, user_trail_status: 'unlocked', hidden_point: data } : prev,
+              );
+              Alert.alert('Trail Unlocked!', `${remaining} key${remaining !== 1 ? 's' : ''} remaining.`);
+            } catch (err) {
+              Alert.alert('Error', err instanceof Error ? err.message : 'Failed to unlock trail.');
+            }
+          },
+        },
+      ],
+    );
+  }, [userId, userKeys]);
+
+  const renderTrail = useCallback(({ item }: { item: Trail }) => (
+    <TrailCard
+      trail={item}
+      variants={variants}
+      userKeys={userKeys}
+      onShowMore={t => setSelectedTrail(t)}
+      onUnlock={handleUnlock}
+    />
+  ), [variants, userKeys, handleUnlock]);
+
+  const isLoading = loadingLocation || loadingTrails;
 
   const ListHeader = (
     <View>
-      {/* Header card */}
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleGroup}>
@@ -731,7 +951,7 @@ export default function ExplorerScreen() {
           </View>
           <View style={styles.keysBadge}>
             <Icon name="key-outline" size={14} color={Colors.orange} />
-            <Text style={styles.keysBadgeText}>{MOCK_USER_KEYS}</Text>
+            <Text style={styles.keysBadgeText}>{userKeys}</Text>
             <Text style={styles.keysBadgeLabel}>Keys</Text>
           </View>
         </View>
@@ -742,39 +962,33 @@ export default function ExplorerScreen() {
           activeOpacity={0.8}
         >
           <Icon name={showFilters ? 'close-circle-outline' : 'search-outline'} size={17} color="#fff" />
-          <Text style={styles.searchBtnText}>
-            {showFilters ? 'Hide Filters' : 'Search Trails'}
-          </Text>
+          <Text style={styles.searchBtnText}>{showFilters ? 'Hide Filters' : 'Search Trails'}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Collapsible filter */}
-      {showFilters && (
-        <FilterSection
-          selectedStatus={selectedStatus}
-          onStatusChange={setSelectedStatus}
-        />
+      {!hasLocation && !loadingLocation && (
+        <NoAccessLocation onSettings={() => Linking.openSettings()} />
       )}
 
-      {/* No location state */}
-      {!HAS_LOCATION && !isLoading && <NoAccessLocation />}
-
-      {/* Empty state */}
-      {HAS_LOCATION && filteredTrails.length === 0 && !isLoading && (
-        <View style={styles.emptyState}>
-          <Icon name="sad-outline" size={48} color="#9AA0A6" />
-          <Text style={styles.emptyTitle}>No trails found</Text>
-          <Text style={styles.emptyBody}>
-            Try adjusting your search filters to find your next adventure.
-          </Text>
+      {loadingLocation && (
+        <View style={styles.loadingState}>
+          <ActivityIndicator size="large" color={Colors.orange} />
+          <Text style={styles.loadingText}>Detecting your location...</Text>
         </View>
       )}
 
-      {/* Loading */}
-      {isLoading && (
+      {hasLocation && loadingTrails && trails.length === 0 && (
         <View style={styles.loadingState}>
           <ActivityIndicator size="large" color={Colors.orange} />
           <Text style={styles.loadingText}>Loading nearby trails...</Text>
+        </View>
+      )}
+
+      {hasLocation && !isLoading && trails.length === 0 && (
+        <View style={styles.emptyState}>
+          <Icon name="sad-outline" size={48} color="#9AA0A6" />
+          <Text style={styles.emptyTitle}>No trails found</Text>
+          <Text style={styles.emptyBody}>Try adjusting your filters to find your next adventure.</Text>
         </View>
       )}
     </View>
@@ -784,31 +998,47 @@ export default function ExplorerScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <FlatList
         style={styles.container}
-        data={HAS_LOCATION && !isLoading ? filteredTrails : []}
+        data={hasLocation && !loadingLocation ? trails : []}
         keyExtractor={item => item.id}
         renderItem={renderTrail}
         ListHeaderComponent={ListHeader}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.3}
         ListFooterComponent={
-          HAS_LOCATION && filteredTrails.length > 0 && !isLoading ? (
+          hasMore ? (
             <View style={styles.loadMoreWrap}>
-              <TouchableOpacity style={styles.loadMoreBtn}>
-                <Text style={styles.loadMoreText}>Load More Trails</Text>
-              </TouchableOpacity>
+              {loadingTrails ? (
+                <ActivityIndicator color={Colors.orange} />
+              ) : (
+                <TouchableOpacity style={styles.loadMoreBtn} onPress={handleLoadMore}>
+                  <Text style={styles.loadMoreText}>Load More Trails</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : null
         }
       />
 
+      <FilterModal
+        visible={showFilters}
+        variants={variants}
+        cities={cities}
+        filters={filters}
+        onApply={handleApplyFilters}
+        onClose={() => setShowFilters(false)}
+        onStateChange={handleStateChange}
+      />
+
       <TrailDetailModal
         trail={selectedTrail}
+        variants={variants}
         visible={!!selectedTrail}
         onClose={() => setSelectedTrail(null)}
       />
     </SafeAreaView>
   );
-
 }
 
 // ---------------------------------------------------------------------------
@@ -816,422 +1046,151 @@ export default function ExplorerScreen() {
 // ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-  },
-  listContent: {
-    paddingBottom: 40,
-  },
+  safeArea: { flex: 1, backgroundColor: '#F5F5F5' },
+  container: { flex: 1, backgroundColor: '#F5F5F5' },
+  listContent: { paddingBottom: 40 },
 
-  // Header card
+  // Header
   header: {
     backgroundColor: '#fff',
     paddingHorizontal: 20,
-    paddingBottom: 20,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    paddingTop: 16,
+    paddingBottom: 16,
+    marginBottom: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
+    shadowOpacity: 0.06,
     shadowRadius: 8,
-    elevation: 4,
-    marginBottom: 16,
+    elevation: 3,
   },
-  headerTopRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  headerTitleGroup: {
-    flex: 1,
-    paddingRight: 12,
-  },
-  headerTitle: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 26,
-    color: Colors.blueGrey,
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 14,
-    color: '#687076',
-  },
+  headerTopRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 },
+  headerTitleGroup: { flex: 1 },
+  headerTitle: { fontFamily: Fonts.gothamBold, fontSize: 24, color: Colors.blueGrey, marginBottom: 2 },
+  headerSubtitle: { fontFamily: Fonts.firaSansRegular, fontSize: 13, color: '#687076' },
   keysBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#FFF4EB',
-    borderRadius: 12,
+    backgroundColor: Colors.orange + '18',
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: '#FFE0C2',
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 4,
   },
-  keysBadgeText: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 16,
-    color: Colors.blueGrey,
-  },
-  keysBadgeLabel: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 12,
-    color: '#687076',
-  },
+  keysBadgeText: { fontFamily: Fonts.gothamBold, fontSize: 16, color: Colors.orange },
+  keysBadgeLabel: { fontFamily: Fonts.firaSansRegular, fontSize: 12, color: Colors.orange },
   searchBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 7,
     backgroundColor: Colors.orange,
-    borderRadius: 12,
-    paddingVertical: 12,
-  },
-  searchBtnText: {
-    fontFamily: Fonts.firaSansBold,
-    fontSize: 14,
-    color: '#fff',
-  },
-
-  // Filter section
-  filterWrap: {
-    marginHorizontal: 20,
-    marginBottom: 12,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  filterLabel: {
-    fontFamily: Fonts.firaSansBold,
-    fontSize: 12,
-    color: '#687076',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginBottom: 8,
-  },
-  filterChips: {
-    gap: 8,
-  },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: '#F5F5F5',
-    borderWidth: 1,
-    borderColor: '#E9ECEF',
-  },
-  chipActive: {
-    backgroundColor: Colors.orange,
-    borderColor: Colors.orange,
-  },
-  chipText: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 13,
-    color: Colors.blueGrey,
-  },
-  chipTextActive: {
-    color: '#fff',
-    fontFamily: Fonts.firaSansBold,
-  },
-
-  // States
-  noLocationWrap: {
-    margin: 20,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 32,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  noLocationTitle: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 18,
-    color: Colors.blueGrey,
-    textAlign: 'center',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  noLocationBody: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 13,
-    color: '#687076',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 20,
-  },
-  noLocationBtn: {
-    backgroundColor: Colors.blueGrey,
     borderRadius: 10,
+    paddingVertical: 10,
+    gap: 6,
+  },
+  searchBtnText: { fontFamily: Fonts.firaSansBold, fontSize: 14, color: '#fff' },
+
+  // No location
+  noLocationWrap: { alignItems: 'center', padding: 40, gap: 12 },
+  noLocationTitle: { fontFamily: Fonts.gothamBold, fontSize: 18, color: Colors.blueGrey },
+  noLocationBody: { fontFamily: Fonts.firaSansRegular, fontSize: 14, color: '#687076', textAlign: 'center', lineHeight: 22 },
+  noLocationBtn: {
+    backgroundColor: Colors.orange,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    marginBottom: 12,
+    borderRadius: 10,
+    marginTop: 4,
   },
-  noLocationBtnText: {
-    fontFamily: Fonts.firaSansBold,
-    fontSize: 14,
-    color: '#fff',
-  },
-  noLocationNote: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 11,
-    color: '#9AA0A6',
-    textAlign: 'center',
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 48,
-    paddingHorizontal: 32,
-  },
-  emptyTitle: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 18,
-    color: Colors.blueGrey,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptyBody: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 14,
-    color: '#9AA0A6',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  loadingState: {
-    alignItems: 'center',
-    paddingVertical: 40,
-    gap: 10,
-  },
-  loadingText: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 14,
-    color: '#9AA0A6',
-  },
+  noLocationBtnText: { fontFamily: Fonts.firaSansBold, fontSize: 14, color: '#fff' },
+  noLocationNote: { fontFamily: Fonts.firaSansRegular, fontSize: 12, color: '#9AA0A6' },
 
-  // Trail card
+  // States
+  loadingState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40, gap: 10 },
+  loadingText: { fontFamily: Fonts.firaSansRegular, fontSize: 14, color: '#687076' },
+  emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, paddingHorizontal: 24, gap: 10 },
+  emptyTitle: { fontFamily: Fonts.gothamBold, fontSize: 18, color: Colors.blueGrey },
+  emptyBody: { fontFamily: Fonts.firaSansRegular, fontSize: 14, color: '#687076', textAlign: 'center' },
+
+  // Card
   card: {
-    marginHorizontal: 20,
-    marginBottom: 16,
     backgroundColor: '#fff',
     borderRadius: 16,
     overflow: 'hidden',
+    marginHorizontal: 16,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
   },
-  cardImageWrap: {
-    height: 180,
-    width: '100%',
-  },
-  cardImage: {
-    width: '100%',
-    height: '100%',
-  },
-  cardImageOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
+  cardImageWrap: { height: 180, position: 'relative' },
+  cardImage: { width: '100%', height: '100%' },
+  cardImageOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)' },
   lockedImageBanner: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0,0,0,0.72)',
+    bottom: 10,
+    left: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 9,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    gap: 5,
   },
-  lockedImageBannerText: {
-    color: '#fff',
-    fontFamily: Fonts.gothamBold,
-    fontSize: 12,
-    letterSpacing: 2.5,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 8,
-    gap: 8,
-  },
-  cardTitle: {
-    flex: 1,
-    fontFamily: Fonts.gothamBold,
-    fontSize: 16,
-    color: Colors.blueGrey,
-  },
-  cardTitleLocked: {
-    color: '#9AA0A6',
-  },
-  cardBadgeRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 16,
-    gap: 6,
-    marginBottom: 10,
-  },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-    gap: 4,
-  },
-  badgeText: {
-    fontFamily: Fonts.firaSansBold,
-    fontSize: 11,
-  },
-  cardBody: {
-    paddingHorizontal: 16,
-    paddingBottom: 4,
-    gap: 6,
-  },
-  cardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  cardRowIcon: {
-    marginRight: 6,
-  },
-  cardRowText: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 13,
-    color: '#4B5563',
-    flex: 1,
-  },
-  cardRowLabel: {
-    fontFamily: Fonts.firaSansBold,
-    color: Colors.blueGrey,
-  },
-  cardSection: {
-    marginTop: 4,
-  },
-  cardSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 3,
-  },
-  cardSectionTitle: {
-    fontFamily: Fonts.firaSansBold,
-    fontSize: 13,
-    color: Colors.blueGrey,
-  },
-  cardOverview: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 12,
-    color: '#6B7280',
-    lineHeight: 18,
-  },
-  showMoreBtn: {
-    fontFamily: Fonts.firaSansBold,
-    fontSize: 12,
-    color: Colors.blueGrey,
-    marginTop: 6,
-    textDecorationLine: 'underline',
-  },
-  cardDivider: {
-    height: 1,
-    backgroundColor: '#F0F0F0',
-    marginTop: 12,
-  },
-  cardFooter: {
-    padding: 14,
-  },
+  lockedImageBannerText: { fontFamily: Fonts.gothamBold, fontSize: 11, color: '#fff', letterSpacing: 1 },
+  cardHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingHorizontal: 14, paddingTop: 14, paddingBottom: 8, gap: 8 },
+  cardTitle: { fontFamily: Fonts.gothamBold, fontSize: 16, color: Colors.blueGrey, flex: 1 },
+  cardTitleLocked: { fontStyle: 'italic', color: '#9AA0A6' },
+  cardBadgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 14, marginBottom: 10 },
+  badge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20, gap: 4 },
+  badgeText: { fontFamily: Fonts.firaSansBold, fontSize: 11 },
+  cardBody: { paddingHorizontal: 14, paddingBottom: 12, gap: 6 },
+  cardRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+  cardRowIcon: { marginTop: 1 },
+  cardRowText: { fontFamily: Fonts.firaSansRegular, fontSize: 13, color: Colors.blueGrey, flex: 1 },
+  cardRowLabel: { fontFamily: Fonts.firaSansBold, fontSize: 13, color: Colors.blueGrey },
+  cardSection: { gap: 4 },
+  cardSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  cardSectionTitle: { fontFamily: Fonts.firaSansBold, fontSize: 13, color: Colors.blueGrey },
+  cardOverview: { fontFamily: Fonts.firaSansRegular, fontSize: 12, color: '#687076', lineHeight: 18 },
+  showMoreBtn: { fontFamily: Fonts.firaSansBold, fontSize: 13, color: Colors.orange, marginTop: 4 },
+  cardDivider: { height: 1, backgroundColor: '#F0F0F0' },
+  cardFooter: { padding: 14 },
   footerBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 11,
+    paddingVertical: 12,
     borderRadius: 10,
     gap: 6,
   },
-  footerBtnPrimary: {
-    backgroundColor: Colors.blueGrey,
-  },
-  footerBtnUnlock: {
-    backgroundColor: Colors.orange,
-  },
-  footerBtnOutline: {
-    borderWidth: 1,
-    borderColor: '#E9ECEF',
-    backgroundColor: 'transparent',
-  },
-  footerBtnText: {
-    fontFamily: Fonts.firaSansBold,
-    fontSize: 14,
-    color: '#fff',
-  },
-  footerBtnOutlineText: {
-    fontFamily: Fonts.firaSansBold,
-    fontSize: 14,
-    color: Colors.blueGrey,
-  },
+  footerBtnPrimary: { backgroundColor: Colors.orange },
+  footerBtnUnlock: { backgroundColor: '#D97706' },
+  footerBtnOutline: { borderWidth: 1, borderColor: '#E9ECEF' },
+  footerBtnText: { fontFamily: Fonts.firaSansBold, fontSize: 14, color: '#fff' },
+  footerBtnOutlineText: { fontFamily: Fonts.firaSansBold, fontSize: 14, color: Colors.blueGrey },
 
   // Load more
-  loadMoreWrap: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 16,
-  },
+  loadMoreWrap: { alignItems: 'center', paddingVertical: 20 },
   loadMoreBtn: {
-    backgroundColor: '#F6B223',
-    borderRadius: 12,
+    backgroundColor: Colors.orange,
+    paddingHorizontal: 32,
     paddingVertical: 14,
-    alignItems: 'center',
+    borderRadius: 12,
   },
-  loadMoreText: {
-    fontFamily: Fonts.firaSansBold,
-    fontSize: 15,
-    color: '#1C1C1C',
-  },
+  loadMoreText: { fontFamily: Fonts.firaSansBold, fontSize: 14, color: '#fff' },
 
-  // Trail detail modal
-  detailOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  detailSheet: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '92%',
-  },
-  detailImageWrap: {
-    height: 200,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    overflow: 'hidden',
-  },
-  detailImage: {
-    width: '100%',
-    height: '100%',
-  },
+  // Detail modal
+  detailOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
+  detailSheet: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '90%' },
+  detailImageWrap: { height: 200, position: 'relative' },
+  detailImage: { width: '100%', height: '100%', borderTopLeftRadius: 24, borderTopRightRadius: 24 },
   detailImageOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.5)',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1239,95 +1198,96 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 12,
     right: 12,
+    backgroundColor: '#fff',
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.9)',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
   },
-  detailScroll: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 32,
-    gap: 8,
-  },
-  detailTitleRow: {
+  detailScroll: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 32 },
+  detailTitleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10, gap: 8 },
+  detailTitle: { fontFamily: Fonts.gothamBold, fontSize: 18, color: Colors.blueGrey, flex: 1 },
+  detailTitleLocked: { fontStyle: 'italic', color: '#9AA0A6' },
+  detailBadgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
+  detailRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8, gap: 8 },
+  detailRowIcon: { marginTop: 1 },
+  detailRowText: { fontFamily: Fonts.firaSansRegular, fontSize: 14, color: Colors.blueGrey, flex: 1 },
+  detailLabel: { fontFamily: Fonts.firaSansBold, fontSize: 14, color: Colors.blueGrey },
+  detailSection: { marginBottom: 12 },
+  detailSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
+  detailSectionTitle: { fontFamily: Fonts.firaSansBold, fontSize: 14, color: Colors.blueGrey },
+  detailBody: { fontFamily: Fonts.firaSansRegular, fontSize: 14, color: '#687076', lineHeight: 22 },
+  detailLink: { color: '#3B82F6', textDecorationLine: 'underline' },
+  coordsRow: { flexDirection: 'row', alignItems: 'center' },
+  copyBtn: { padding: 6 },
+
+  // Filter modal
+  filterOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
+  filterSheet: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '85%' },
+  filterHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 8,
-    marginBottom: 10,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
   },
-  detailTitle: {
-    flex: 1,
+  filterTitle: { fontFamily: Fonts.gothamBold, fontSize: 17, color: Colors.blueGrey },
+  filterScroll: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
+  filterSectionLabel: {
     fontFamily: Fonts.gothamBold,
-    fontSize: 18,
-    color: Colors.blueGrey,
-  },
-  detailTitleLocked: {
-    fontStyle: 'italic',
-  },
-  detailBadgeRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
+    fontSize: 12,
+    color: '#687076',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
     marginBottom: 8,
+    marginTop: 12,
   },
-  detailRow: {
+  filterSectionLabelDisabled: { color: '#C0C0C0' },
+  filterChipScroll: { marginBottom: 4 },
+  filterChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingBottom: 4 },
+  filterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+    backgroundColor: '#F8F9FA',
+  },
+  filterChipActive: { backgroundColor: Colors.orange, borderColor: Colors.orange },
+  filterChipText: { fontFamily: Fonts.firaSansRegular, fontSize: 13, color: Colors.blueGrey },
+  filterChipTextActive: { color: '#fff', fontFamily: Fonts.firaSansBold },
+  filterActions: {
     flexDirection: 'row',
-    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
   },
-  detailRowIcon: {
-    marginRight: 8,
-  },
-  detailRowText: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 14,
-    color: '#4B5563',
+  filterResetBtn: {
     flex: 1,
-  },
-  detailLabel: {
-    fontFamily: Fonts.firaSansBold,
-    color: Colors.blueGrey,
-  },
-  detailSection: {
-    marginTop: 4,
-  },
-  detailSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
-  },
-  detailSectionTitle: {
-    fontFamily: Fonts.firaSansBold,
-    fontSize: 14,
-    color: Colors.blueGrey,
-  },
-  detailBody: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 13,
-    color: '#6B7280',
-    lineHeight: 20,
-  },
-  detailLink: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 13,
-    color: '#3B82F6',
-  },
-  coordsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  copyBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E9ECEF',
     alignItems: 'center',
-    justifyContent: 'center',
   },
+  filterResetText: { fontFamily: Fonts.firaSansBold, fontSize: 14, color: Colors.blueGrey },
+  filterApplyBtn: {
+    flex: 2,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: Colors.orange,
+    alignItems: 'center',
+  },
+  filterApplyText: { fontFamily: Fonts.firaSansBold, fontSize: 14, color: '#fff' },
 });
