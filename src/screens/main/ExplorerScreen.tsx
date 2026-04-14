@@ -481,9 +481,13 @@ function TrailCard({
       <View style={styles.cardImageWrap}>
         <Image source={{ uri: trail.image_url }} style={styles.cardImage} />
         {isLocked && (
-          <View style={styles.cardImageOverlay}>
-            <Icon name="lock-closed" size={36} color="rgba(255,255,255,0.7)" />
-          </View>
+          <>
+            <View style={styles.cardImageOverlay} />
+            <View style={styles.lockedImageBanner}>
+              <Icon name="lock-closed" size={13} color="#fff" />
+              <Text style={styles.lockedImageBannerText}>LOCKED</Text>
+            </View>
+          </>
         )}
       </View>
 
@@ -493,7 +497,7 @@ function TrailCard({
           style={[styles.cardTitle, isLocked && styles.cardTitleLocked]}
           numberOfLines={2}
         >
-          {isLocked ? 'Locked Trail — Unlock for Details' : trail.name}
+          {isLocked ? 'Locked Trail' : trail.name}
         </Text>
         <Icon
           name={getStatusIconName(trail.user_trail_status)}
@@ -777,7 +781,7 @@ export default function ExplorerScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <FlatList
         style={styles.container}
         data={HAS_LOCATION && !isLoading ? filteredTrails : []}
@@ -1041,9 +1045,25 @@ const styles = StyleSheet.create({
   },
   cardImageOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  lockedImageBanner: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.72)',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 9,
+  },
+  lockedImageBannerText: {
+    color: '#fff',
+    fontFamily: Fonts.gothamBold,
+    fontSize: 12,
+    letterSpacing: 2.5,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -1061,7 +1081,7 @@ const styles = StyleSheet.create({
     color: Colors.blueGrey,
   },
   cardTitleLocked: {
-    fontStyle: 'italic',
+    color: '#9AA0A6',
   },
   cardBadgeRow: {
     flexDirection: 'row',
