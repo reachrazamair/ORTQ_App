@@ -18,7 +18,7 @@ export interface UserProfile {
   keys: number;
   points: number;
   city: { id: string; name: string } | null;
-  state: { id: string; name: string; abbreviation: string } | null;
+  state: { id: string; name: string; abbreviation: string; region: { name: string } | null } | null;
 }
 
 export async function getProfile(userId: string): Promise<UserProfile | null> {
@@ -26,7 +26,7 @@ export async function getProfile(userId: string): Promise<UserProfile | null> {
     .from('profiles')
     .select(`
       *,
-      state:states (id, name, abbreviation),
+      state:states (id, name, abbreviation, region:regions (name)),
       city:cities (id, name)
     `)
     .eq('id', userId)
@@ -64,7 +64,8 @@ export async function updateProfile(
 ): Promise<void> {
   const { error } = await supabase
     .from('profiles')
-    .upsert({ id: userId, ...data });
+    .update(data)
+    .eq('id', userId);
 
   if (error) throw new Error(error.message);
 }
