@@ -4,6 +4,7 @@ import {
   Alert,
   Image,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -12,21 +13,18 @@ import {
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 import { supabase } from '../../lib/supabase';
+import { getProfile } from '../../lib/profile';
 import { ProfileStackParamList } from '../../navigation/ProfileStack';
 
 type Props = {
   navigation: NativeStackNavigationProp<ProfileStackParamList, 'ProfileHome'>;
 };
 
-type StatCardProps = {
-  value: string | number;
-  label: string;
-};
-
-function StatCard({ value, label }: StatCardProps) {
+function StatCard({ value, label }: { value: string | number; label: string }) {
   return (
     <View style={styles.statCard}>
       <Text style={styles.statValue}>{value}</Text>
@@ -35,19 +33,31 @@ function StatCard({ value, label }: StatCardProps) {
   );
 }
 
-type MenuRowProps = {
+function MenuRow({
+  icon,
+  label,
+  onPress,
+  destructive,
+}: {
+  icon: string;
   label: string;
   onPress: () => void;
   destructive?: boolean;
-};
-
-function MenuRow({ label, onPress, destructive }: MenuRowProps) {
+}) {
   return (
-    <TouchableOpacity style={styles.menuRow} onPress={onPress}>
-      <Text style={[styles.menuLabel, destructive && styles.destructiveText]}>
-        {label}
-      </Text>
-      <Text style={styles.menuChevron}>›</Text>
+    <TouchableOpacity style={styles.menuRow} onPress={onPress} activeOpacity={0.7}>
+      <View style={styles.menuRowLeft}>
+        <Ionicons
+          name={icon}
+          size={20}
+          color={destructive ? Colors.error : Colors.blueGrey}
+          style={styles.menuIcon}
+        />
+        <Text style={[styles.menuLabel, destructive && styles.destructiveText]}>
+          {label}
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color="#C0C0C0" />
     </TouchableOpacity>
   );
 }
@@ -61,15 +71,31 @@ export default function ProfileScreen({ navigation }: Props) {
 
   useFocusEffect(
     useCallback(() => {
-      supabase.auth.getUser().then(({ data }) => {
-        if (data.user) {
-          setEmail(data.user.email ?? '');
-          const meta = data.user.user_metadata;
+      const load = async () => {
+        const { data: authData } = await supabase.auth.getUser();
+        const user = authData.user;
+        if (!user) { setLoading(false); return; }
+
+        setEmail(user.email ?? '');
+
+        try {
+          const profile = await getProfile(user.id);
+          if (profile) {
+            setDisplayName(profile.full_name ?? '');
+            setAvatarUrl(profile.profile_image_url ?? null);
+          }
+        } catch (err) {
+          console.error('[ProfileScreen] getProfile failed:', err);
+          // fallback to auth metadata
+          const meta = user.user_metadata;
           setDisplayName(meta?.full_name ?? meta?.name ?? '');
           setAvatarUrl(meta?.avatar_url ?? null);
         }
+
         setLoading(false);
-      });
+      };
+
+      load();
     }, []),
   );
 
@@ -102,87 +128,118 @@ export default function ProfileScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        {avatarUrl ? (
-          <Image source={{ uri: avatarUrl }} style={styles.avatar} />
-        ) : (
-          <View style={[styles.avatar, styles.avatarPlaceholder]}>
-            <Text style={styles.avatarText}>{avatarInitial}</Text>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => navigation.navigate('EditProfile')}
+          >
+            <Text style={styles.editButtonText}>Edit Profile</Text>
+          </TouchableOpacity>
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+          ) : (
+            <View style={[styles.avatar, styles.avatarPlaceholder]}>
+              <Text style={styles.avatarText}>{avatarInitial}</Text>
+            </View>
+          )}
+          <Text style={styles.displayName}>{displayName || 'Explorer'}</Text>
+          <Text style={styles.emailText}>{email}</Text>
+        </View>
+
+        {/* Stats */}
+        <View style={styles.statsRow}>
+          <StatCard value={0} label="Points" />
+          <View style={styles.statDivider} />
+          <StatCard value={0} label="Trails" />
+          <View style={styles.statDivider} />
+          <StatCard value={0} label="Quests" />
+        </View>
+
+        {/* Key Wallet */}
+        <View style={styles.keyWallet}>
+          <View style={styles.keyWalletLeft}>
+            <Text style={styles.keyWalletTitle}>Key Wallet</Text>
+            <Text style={styles.keyWalletSub}>Keys available to unlock trails</Text>
           </View>
-        )}
-        <Text style={styles.displayName}>
-          {displayName || 'Explorer'}
-        </Text>
-        <Text style={styles.email}>{email}</Text>
-      </View>
-
-      {/* Stats */}
-      <View style={styles.statsRow}>
-        <StatCard value={0} label="Trails" />
-        <View style={styles.statDivider} />
-        <StatCard value={0} label="Checkpoints" />
-        <View style={styles.statDivider} />
-        <StatCard value={0} label="Points" />
-      </View>
-
-      {/* Account section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Account</Text>
-        <View style={styles.menuCard}>
-          <MenuRow label="Edit Profile" onPress={() => navigation.navigate('EditProfile')} />
-          <View style={styles.rowDivider} />
-          <MenuRow label="Change Password" onPress={() => navigation.navigate('ChangePassword')} />
-          <View style={styles.rowDivider} />
-          <MenuRow label="Notifications" onPress={() => {}} />
+          <View style={styles.keyCountWrap}>
+            <Text style={styles.keyCount}>0</Text>
+            <Text style={styles.keyUnit}>Keys</Text>
+          </View>
         </View>
-      </View>
 
-      {/* App section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>App</Text>
+        {/* Profile menu */}
+        <Text style={styles.sectionLabel}>Account</Text>
         <View style={styles.menuCard}>
-          <MenuRow label="About ORTQ" onPress={() => {}} />
+          <MenuRow
+            icon="person-outline"
+            label="My Profile Details"
+            onPress={() => navigation.navigate('ProfileDetails')}
+          />
           <View style={styles.rowDivider} />
-          <MenuRow label="Privacy Policy" onPress={() => {}} />
+          <MenuRow
+            icon="key-outline"
+            label="Key Usage & Trail Progress"
+            onPress={() => navigation.navigate('KeyUsage')}
+          />
+          <View style={styles.rowDivider} />
+          <MenuRow
+            icon="receipt-outline"
+            label="Purchase History"
+            onPress={() => navigation.navigate('PurchaseHistory')}
+          />
+          <View style={styles.rowDivider} />
+          <MenuRow
+            icon="settings-outline"
+            label="Account Settings"
+            onPress={() => navigation.navigate('AccountSettings')}
+          />
         </View>
-      </View>
 
-      {/* Sign out */}
-      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>App</Text>
         <View style={styles.menuCard}>
+          <MenuRow
+            icon="information-circle-outline"
+            label="About ORTQ"
+            onPress={() => {}}
+          />
+          <View style={styles.rowDivider} />
+          <MenuRow
+            icon="shield-checkmark-outline"
+            label="Privacy Policy"
+            onPress={() => {}}
+          />
+        </View>
+
+        <View style={[styles.menuCard, styles.signOutCard]}>
           {signingOut ? (
             <View style={styles.menuRow}>
               <ActivityIndicator color={Colors.error} />
             </View>
           ) : (
-            <MenuRow label="Sign Out" onPress={handleSignOut} destructive />
+            <MenuRow
+              icon="log-out-outline"
+              label="Sign Out"
+              onPress={handleSignOut}
+              destructive
+            />
           )}
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
     </SafeAreaView>
   );
-
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#fff', // matches header card so status bar area blends in
-  },
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-  },
-  scrollContent: {
-    paddingBottom: 40,
-  },
+  safeArea: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: '#F5F5F5' },
+  scrollContent: { paddingBottom: 40 },
   centered: {
     flex: 1,
     alignItems: 'center',
@@ -195,6 +252,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#fff',
     paddingBottom: 28,
+    paddingTop: 8,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
     shadowColor: '#000',
@@ -203,6 +261,17 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
+  editButton: {
+    alignSelf: 'flex-end',
+    marginRight: 16,
+    marginBottom: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.orange,
+  },
+  editButtonText: { fontFamily: Fonts.firaSansBold, fontSize: 13, color: Colors.orange },
   avatar: {
     width: 88,
     height: 88,
@@ -214,27 +283,10 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
-  avatarPlaceholder: {
-    backgroundColor: Colors.orange,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 36,
-    color: '#fff',
-  },
-  displayName: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 22,
-    color: Colors.blueGrey,
-    marginBottom: 4,
-  },
-  email: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 14,
-    color: '#687076',
-  },
+  avatarPlaceholder: { backgroundColor: Colors.orange, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontFamily: Fonts.gothamBold, fontSize: 36, color: '#fff' },
+  displayName: { fontFamily: Fonts.gothamBold, fontSize: 22, color: Colors.blueGrey, marginBottom: 4 },
+  emailText: { fontFamily: Fonts.firaSansRegular, fontSize: 14, color: '#687076' },
 
   // Stats
   statsRow: {
@@ -250,42 +302,54 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  statCard: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 24,
-    color: Colors.blueGrey,
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 12,
-    color: '#687076',
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: '#E8E8E8',
-  },
+  statCard: { flex: 1, alignItems: 'center' },
+  statValue: { fontFamily: Fonts.gothamBold, fontSize: 24, color: Colors.blueGrey, marginBottom: 4 },
+  statLabel: { fontFamily: Fonts.firaSansRegular, fontSize: 12, color: '#687076' },
+  statDivider: { width: 1, backgroundColor: '#E8E8E8' },
 
-  // Sections
-  section: {
-    marginTop: 24,
+  // Key Wallet
+  keyWallet: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
     marginHorizontal: 20,
+    marginTop: 16,
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  sectionTitle: {
+  keyWalletLeft: { flex: 1 },
+  keyWalletTitle: { fontFamily: Fonts.gothamBold, fontSize: 15, color: Colors.blueGrey, marginBottom: 2 },
+  keyWalletSub: { fontFamily: Fonts.firaSansRegular, fontSize: 12, color: '#687076' },
+  keyCountWrap: {
+    alignItems: 'center',
+    backgroundColor: Colors.orange + '18',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  keyCount: { fontFamily: Fonts.gothamBold, fontSize: 28, color: Colors.orange },
+  keyUnit: { fontFamily: Fonts.firaSansRegular, fontSize: 12, color: Colors.orange },
+
+  // Menu
+  sectionLabel: {
     fontFamily: Fonts.gothamBold,
-    fontSize: 13,
+    fontSize: 12,
     color: '#687076',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
+    marginHorizontal: 24,
+    marginTop: 24,
     marginBottom: 8,
-    marginLeft: 4,
   },
   menuCard: {
     backgroundColor: '#fff',
+    marginHorizontal: 20,
     borderRadius: 16,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -294,6 +358,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
+  signOutCard: {
+    marginTop: 24,
+  },
   menuRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -301,22 +368,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
   },
-  menuLabel: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 16,
-    color: Colors.blueGrey,
-  },
-  menuChevron: {
-    fontSize: 20,
-    color: '#C0C0C0',
-    lineHeight: 22,
-  },
-  rowDivider: {
-    height: 1,
-    backgroundColor: '#F0F0F0',
-    marginLeft: 16,
-  },
-  destructiveText: {
-    color: Colors.error,
-  },
+  menuRowLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  menuIcon: { marginRight: 12 },
+  menuLabel: { fontFamily: Fonts.firaSansRegular, fontSize: 15, color: Colors.blueGrey },
+  destructiveText: { color: Colors.error },
+  rowDivider: { height: 1, backgroundColor: '#F0F0F0', marginLeft: 48 },
 });
