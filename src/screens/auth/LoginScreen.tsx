@@ -29,7 +29,6 @@ export default function LoginScreen({ navigation }: Props) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [generalError, setGeneralError] = useState('');
 
   useFocusEffect(
     useCallback(() => {
@@ -37,30 +36,29 @@ export default function LoginScreen({ navigation }: Props) {
         setEmail('');
         setPassword('');
         setErrors({});
-        setGeneralError('');
       };
-    }, [])
+    }, []),
   );
 
   const handleLogin = async () => {
-    // Reset errors
     setErrors({});
-    setGeneralError('');
 
-    // Check for empty fields first (User preference)
-    if (!email || !password) {
-      setGeneralError('Please fill in all fields');
+    const fieldErrors: Record<string, string> = {};
+    if (!email) fieldErrors.email = 'Email is required';
+    if (!password) fieldErrors.password = 'Password is required';
+    if (Object.keys(fieldErrors).length > 0) {
+      setErrors(fieldErrors);
       return;
     }
 
     const result = loginSchema.safeParse({ email, password });
-
     if (!result.success) {
-      const fieldErrors: Record<string, string> = {};
+      const zodErrors: Record<string, string> = {};
       result.error.issues.forEach(issue => {
-        fieldErrors[issue.path[0] as string] = issue.message;
+        const field = issue.path[0] as string;
+        if (!zodErrors[field]) zodErrors[field] = issue.message;
       });
-      setErrors(fieldErrors);
+      setErrors(zodErrors);
       return;
     }
 
@@ -72,7 +70,7 @@ export default function LoginScreen({ navigation }: Props) {
     setLoading(false);
 
     if (error) {
-      setGeneralError(error.message);
+      Alert.alert('Sign In Failed', error.message);
     }
   };
 
@@ -82,80 +80,72 @@ export default function LoginScreen({ navigation }: Props) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <View style={styles.logoCircle}>
-            <Text style={styles.logoText}>O</Text>
-          </View>
-          <Text style={styles.welcomeText}>Welcome Back</Text>
-          <Text style={styles.subText}>Sign in to continue to ORTQ</Text>
-        </View>
-
-        <View style={styles.form}>
-          <CustomInput
-            label="Email Address"
-            placeholder="name@example.com"
-            value={email}
-            onChangeText={text => {
-              setEmail(text);
-              if (errors.email) setErrors(prev => ({ ...prev, email: '' }));
-              setGeneralError('');
-            }}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            error={errors.email}
-            editable={!loading}
-          />
-
-          <CustomInput
-            label="Password"
-            placeholder="Enter your password"
-            value={password}
-            onChangeText={text => {
-              setPassword(text);
-              if (errors.password)
-                setErrors(prev => ({ ...prev, password: '' }));
-              setGeneralError('');
-            }}
-            isPassword
-            error={errors.password}
-            editable={!loading}
-            labelRight={
-              <TouchableOpacity
-                onPress={() => navigation.navigate('ForgotPassword')}
-                disabled={loading}
-              >
-                <Text style={styles.forgotText}>Forgot password?</Text>
-              </TouchableOpacity>
-            }
-          />
-
-          {generalError ? (
-            <View style={styles.generalErrorContainer}>
-              <Text style={styles.generalErrorText}>{generalError}</Text>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={styles.header}>
+            <View style={styles.logoCircle}>
+              <Text style={styles.logoText}>O</Text>
             </View>
-          ) : null}
-
-          <TouchableOpacity
-            style={[styles.loginButton, loading && styles.disabledButton]}
-            onPress={handleLogin}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.loginButtonText}>Sign In</Text>
-            )}
-          </TouchableOpacity>
-
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
-              <Text style={styles.linkText}>Sign Up</Text>
-            </TouchableOpacity>
+            <Text style={styles.welcomeText}>Welcome Back</Text>
+            <Text style={styles.subText}>Sign in to continue to ORTQ</Text>
           </View>
-        </View>
-      </ScrollView>
+
+          <View style={styles.form}>
+            <CustomInput
+              label="Email Address"
+              placeholder="m@example.com"
+              value={email}
+              onChangeText={text => {
+                setEmail(text);
+                if (errors.email) setErrors(prev => ({ ...prev, email: '' }));
+              }}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              error={errors.email}
+              editable={!loading}
+            />
+
+            <CustomInput
+              label="Password"
+              placeholder="********"
+              value={password}
+              onChangeText={text => {
+                setPassword(text);
+                if (errors.password)
+                  setErrors(prev => ({ ...prev, password: '' }));
+              }}
+              isPassword
+              error={errors.password}
+              editable={!loading}
+              labelRight={
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('ForgotPassword')}
+                  disabled={loading}
+                >
+                  <Text style={styles.forgotText}>Forgot password?</Text>
+                </TouchableOpacity>
+              }
+            />
+
+            <TouchableOpacity
+              style={[styles.loginButton, loading && styles.disabledButton]}
+              onPress={handleLogin}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.loginButtonText}>Sign In</Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>Don't have an account? </Text>
+              <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
+                <Text style={styles.linkText}>Sign Up</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -211,19 +201,6 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.firaSansRegular,
     fontSize: 14,
     color: Colors.orange,
-  },
-  generalErrorContainer: {
-    backgroundColor: '#FFF5F5',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FFEBEB',
-  },
-  generalErrorText: {
-    color: Colors.error,
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 14,
-    textAlign: 'center',
   },
   loginButton: {
     height: 56,

@@ -26,16 +26,13 @@ type Props = {
 export default function ForgotPasswordScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   const [fieldError, setFieldError] = useState('');
 
   const handleResetRequest = async () => {
-    // Reset errors
-    setError('');
     setFieldError('');
 
     if (!email) {
-      setError('Please enter your email address');
+      setFieldError('Email is required');
       return;
     }
 
@@ -52,10 +49,10 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
     setLoading(false);
 
     if (resetError) {
-      setError(resetError.message);
+      Alert.alert('Request Failed', resetError.message);
     } else {
       Alert.alert(
-        'Check your email',
+        'Success',
         "We've sent a password reset link to your email address.",
         [{ text: 'OK', onPress: () => navigation.goBack() }],
       );
@@ -68,64 +65,57 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          disabled={loading}
-        >
-          <Text style={styles.backArrow}>←</Text>
-        </TouchableOpacity>
-
-        <View style={styles.header}>
-          <Text style={styles.welcomeText}>Reset Password</Text>
-          <Text style={styles.subText}>
-            Enter your email address and we'll send you a link to reset your
-            password.
-          </Text>
-        </View>
-
-        <View style={styles.form}>
-          <CustomInput
-            label="Email Address"
-            placeholder="name@example.com"
-            value={email}
-            onChangeText={text => {
-              setEmail(text);
-              setFieldError('');
-              setError('');
-            }}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            error={fieldError}
-            editable={!loading}
-          />
-
-          {error ? (
-            <View style={styles.generalErrorContainer}>
-              <Text style={styles.generalErrorText}>{error}</Text>
-            </View>
-          ) : null}
-
+        <ScrollView contentContainerStyle={styles.scrollContent}>
           <TouchableOpacity
-            style={[styles.resetButton, loading && styles.disabledButton]}
-            onPress={handleResetRequest}
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
             disabled={loading}
           >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.resetButtonText}>Send Reset Link</Text>
-            )}
+            <Text style={styles.backArrow}>←</Text>
           </TouchableOpacity>
 
-          <View style={styles.footer}>
-            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Text style={styles.linkText}>Back to Sign In</Text>
-            </TouchableOpacity>
+          <View style={styles.header}>
+            <Text style={styles.welcomeText}>Reset Password</Text>
+            <Text style={styles.subText}>
+              Enter your email address and we'll send you a link to reset your
+              password.
+            </Text>
           </View>
-        </View>
-      </ScrollView>
+
+          <View style={styles.form}>
+            <CustomInput
+              label="Email Address"
+              placeholder="m@example.com"
+              value={email}
+              onChangeText={text => {
+                setEmail(text);
+                setFieldError('');
+              }}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              error={fieldError}
+              editable={!loading}
+            />
+
+            <TouchableOpacity
+              style={[styles.resetButton, loading && styles.disabledButton]}
+              onPress={handleResetRequest}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.resetButtonText}>Send Reset Link</Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.footer}>
+              <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                <Text style={styles.linkText}>Back to Sign In</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -170,19 +160,6 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: 24,
-  },
-  generalErrorContainer: {
-    backgroundColor: '#FFF5F5',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FFEBEB',
-  },
-  generalErrorText: {
-    color: Colors.error,
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 14,
-    textAlign: 'center',
   },
   resetButton: {
     height: 56,
