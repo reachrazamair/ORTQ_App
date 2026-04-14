@@ -1,6 +1,4 @@
-'use client';
-
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
@@ -13,8 +11,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
+import { supabase } from '../../lib/supabase';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -30,7 +30,6 @@ type LeaderboardUser = {
   city: string;
   state_abbreviation: string;
   profile_image_url: string | null;
-  // profile modal fields
   vehicle_type?: string | null;
   make?: string | null;
   model?: string | null;
@@ -41,140 +40,7 @@ type LeaderboardUser = {
 
 type RankedUser = LeaderboardUser & { position: number };
 
-// ---------------------------------------------------------------------------
-// Mock data (replace with real API call)
-// ---------------------------------------------------------------------------
-
-const MOCK_USERS: LeaderboardUser[] = [
-  {
-    user_id: '1',
-    full_name: 'Jake Morrison',
-    alias: 'TrailBlazer',
-    leaderboard_rank: 1,
-    points_earned: 4850,
-    trails_completed_count: 32,
-    city: 'Denver',
-    state_abbreviation: 'CO',
-    profile_image_url: null,
-    vehicle_type: 'Truck',
-    make: 'Ford',
-    model: 'Bronco',
-    year: '2022',
-    rig_description: 'Lifted 4" with 35s, ARB bumpers front and rear.',
-    about_me: 'Obsessed with high-altitude trails and chasing sunsets from ridge lines.',
-  },
-  {
-    user_id: '2',
-    full_name: 'Sarah Kim',
-    alias: 'DesertRider',
-    leaderboard_rank: 2,
-    points_earned: 4210,
-    trails_completed_count: 28,
-    city: 'Phoenix',
-    state_abbreviation: 'AZ',
-    profile_image_url: null,
-    vehicle_type: 'SUV',
-    make: 'Toyota',
-    model: '4Runner',
-    year: '2021',
-    rig_description: null,
-    about_me: 'Desert trails and canyon runs are my happy place.',
-  },
-  {
-    user_id: '3',
-    full_name: 'Marcus Webb',
-    alias: 'MudKing',
-    leaderboard_rank: 3,
-    points_earned: 3980,
-    trails_completed_count: 25,
-    city: 'Salt Lake City',
-    state_abbreviation: 'UT',
-    profile_image_url: null,
-    vehicle_type: 'Jeep',
-    make: 'Jeep',
-    model: 'Wrangler',
-    year: '2020',
-    rig_description: 'Full rock sliders, Dana 44 axle swaps, and 37" Terraflex.',
-    about_me: null,
-  },
-  {
-    user_id: '4',
-    full_name: 'Aliya Nasser',
-    alias: null,
-    leaderboard_rank: 4,
-    points_earned: 3450,
-    trails_completed_count: 22,
-    city: 'Boise',
-    state_abbreviation: 'ID',
-    profile_image_url: null,
-    vehicle_type: null,
-    make: null,
-    model: null,
-    year: null,
-    rig_description: null,
-    about_me: 'Weekend explorer, lover of remote roads.',
-  },
-  {
-    user_id: '5',
-    full_name: 'Chris Delgado',
-    alias: 'HighClearance',
-    leaderboard_rank: 5,
-    points_earned: 3100,
-    trails_completed_count: 20,
-    city: 'Albuquerque',
-    state_abbreviation: 'NM',
-    profile_image_url: null,
-    vehicle_type: null,
-    make: null,
-    model: null,
-    year: null,
-    rig_description: null,
-    about_me: null,
-  },
-  {
-    user_id: '6',
-    full_name: 'Priya Patel',
-    alias: 'RockyRider',
-    leaderboard_rank: 6,
-    points_earned: 2870,
-    trails_completed_count: 18,
-    city: 'Tucson',
-    state_abbreviation: 'AZ',
-    profile_image_url: null,
-    vehicle_type: null,
-    make: null,
-    model: null,
-    year: null,
-    rig_description: null,
-    about_me: null,
-  },
-  {
-    user_id: '7',
-    full_name: 'Tom Erikson',
-    alias: 'IronWheels',
-    leaderboard_rank: 7,
-    points_earned: 2540,
-    trails_completed_count: 16,
-    city: 'Reno',
-    state_abbreviation: 'NV',
-    profile_image_url: null,
-    vehicle_type: null,
-    make: null,
-    model: null,
-    year: null,
-    rig_description: null,
-    about_me: null,
-  },
-];
-
-const MOCK_CURRENT_USER_ID = '3'; // simulate logged-in user
-
-const REGIONS = [
-  { id: 'all', name: 'All Regions' },
-  { id: 'southwest', name: 'Southwest' },
-  { id: 'rocky-mountain', name: 'Rocky Mountain' },
-  { id: 'pacific', name: 'Pacific' },
-];
+type Region = { id: string; name: string };
 
 // ---------------------------------------------------------------------------
 // Medal colors
@@ -417,14 +283,46 @@ function UserRow({
 export default function LeaderboardScreen() {
   const [selectedRegion, setSelectedRegion] = useState('all');
   const [selectedUser, setSelectedUser] = useState<RankedUser | null>(null);
-  const isLoading = false; // replace with real loading state
+  const [users, setUsers] = useState<LeaderboardUser[]>([]);
+  const [regions, setRegions] = useState<Region[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch regions + current user once on mount
+  useEffect(() => {
+    const init = async () => {
+      const [{ data: authData }, { data: regionRows }] = await Promise.all([
+        supabase.auth.getUser(),
+        supabase.from('regions').select('id, name').order('name'),
+      ]);
+      setCurrentUserId(authData.user?.id ?? null);
+      setRegions(regionRows ?? []);
+    };
+    init();
+  }, []);
+
+  // Fetch leaderboard whenever region changes
+  useFocusEffect(
+    useCallback(() => {
+      const load = async () => {
+        setIsLoading(true);
+        const regionId = selectedRegion === 'all' ? null : selectedRegion;
+        const { data, error } = await supabase.rpc('get_top_quests_by_region', {
+          input_region_id: regionId,
+        });
+        if (!error) setUsers(data ?? []);
+        setIsLoading(false);
+      };
+      load();
+    }, [selectedRegion]),
+  );
 
   // Tie-aware position calculation (mirrors web logic)
   const usersWithPosition = useMemo<RankedUser[]>(() => {
     let position = 1;
-    return MOCK_USERS.map((user, index) => {
+    return users.map((user, index) => {
       if (index > 0) {
-        const prevRank = MOCK_USERS[index - 1].leaderboard_rank;
+        const prevRank = users[index - 1].leaderboard_rank;
         const prevPosition = position;
         if (user.leaderboard_rank === prevRank) {
           position = prevPosition;
@@ -434,7 +332,7 @@ export default function LeaderboardScreen() {
       }
       return { ...user, position };
     });
-  }, []);
+  }, [users]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -455,7 +353,7 @@ export default function LeaderboardScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterRow}
         >
-          {REGIONS.map(region => (
+          {[{ id: 'all', name: 'All Regions' }, ...regions].map(region => (
             <TouchableOpacity
               key={region.id}
               style={[styles.chip, selectedRegion === region.id && styles.chipActive]}
@@ -476,7 +374,7 @@ export default function LeaderboardScreen() {
             Top Questers —{' '}
             {selectedRegion === 'all'
               ? 'All Regions'
-              : REGIONS.find(r => r.id === selectedRegion)?.name ?? 'Selected Region'}
+              : regions.find(r => r.id === selectedRegion)?.name ?? 'Selected Region'}
           </Text>
 
           <View style={styles.card}>
@@ -503,7 +401,7 @@ export default function LeaderboardScreen() {
                 <UserRow
                   key={rankedUser.user_id}
                   rankedUser={rankedUser}
-                  isCurrentUser={rankedUser.user_id === MOCK_CURRENT_USER_ID}
+                  isCurrentUser={rankedUser.user_id === currentUserId}
                   isLast={index === usersWithPosition.length - 1}
                   onPress={() => setSelectedUser(rankedUser)}
                 />
