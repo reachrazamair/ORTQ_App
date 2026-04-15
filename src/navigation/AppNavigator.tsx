@@ -7,9 +7,11 @@ import { Fonts } from '../theme/fonts';
 import ProfileStack from './ProfileStack';
 import LeaderboardScreen from '../screens/main/LeaderboardScreen';
 import ExplorerScreen from '../screens/main/ExplorerScreen';
+import MapScreen from '../screens/main/MapScreen';
 
 export type AppTabParamList = {
   Explorer: undefined;
+  Map: { trailId?: string };
   Leaderboard: undefined;
   Profile: undefined;
 };
@@ -41,8 +43,18 @@ export default function AppNavigator() {
         name="Explorer"
         component={ExplorerScreen}
         options={{
+          tabBarLabel: 'Explore',
           tabBarIcon: ({ color, size }) => (
             <Icon name="compass-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Map"
+        component={MapScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Icon name="map-outline" size={size} color={color} />
           ),
         }}
       />
