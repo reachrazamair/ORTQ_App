@@ -6,6 +6,7 @@ import {
   Modal,
   Pressable,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -336,6 +337,7 @@ export default function LeaderboardScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F5F5F5" />
       <ScrollView
         style={styles.container}
         showsVerticalScrollIndicator={false}

@@ -10,11 +10,24 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+// TODO: install @react-native-community/geolocation, then replace the stub below
+// import Geolocation from '@react-native-community/geolocation';
+const Geolocation = {
+  getCurrentPosition: (
+    success: (pos: { coords: { latitude: number; longitude: number } }) => void,
+    _error?: () => void,
+    _opts?: object,
+  ) => {
+    // Dev stub — hardcoded Denver, CO coordinates for testing
+    success({ coords: { latitude: 39.7392, longitude: -104.9903 } });
+  },
+};
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -806,7 +819,7 @@ export default function ExplorerScreen() {
           if (!ok) { setLoadingLocation(false); return; }
         }
 
-        navigator.geolocation.getCurrentPosition(
+        Geolocation.getCurrentPosition(
           pos => {
             if (cancelled) return;
             setUserLat(pos.coords.latitude);
@@ -996,6 +1009,7 @@ export default function ExplorerScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F5F5F5" />
       <FlatList
         style={styles.container}
         data={hasLocation && !loadingLocation ? trails : []}
