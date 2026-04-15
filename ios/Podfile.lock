@@ -25,6 +25,14 @@ PODS:
   - hermes-engine (250829098.0.10):
     - hermes-engine/Pre-built (= 250829098.0.10)
   - hermes-engine/Pre-built (250829098.0.10)
+  - MapboxCommon (24.18.2):
+    - Turf (= 4.0.0)
+  - MapboxCoreMaps (11.18.2):
+    - MapboxCommon (= 24.18.2)
+  - MapboxMaps (11.18.2):
+    - MapboxCommon (= 24.18.2)
+    - MapboxCoreMaps (= 11.18.2)
+    - Turf (= 4.0.0)
   - RCTDeprecation (0.85.0)
   - RCTRequired (0.85.0)
   - RCTSwiftUI (0.85.0)
@@ -1408,6 +1416,28 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - react-native-geolocation (3.4.0):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - react-native-image-picker (8.2.1):
     - hermes-engine
     - RCTRequired
@@ -1884,6 +1914,33 @@ PODS:
     - React-utils (= 0.85.0)
     - ReactNativeDependencies
   - ReactNativeDependencies (0.85.0)
+  - rnmapbox-maps (10.3.0):
+    - MapboxMaps (~> 11.18.2)
+    - React
+    - React-Core
+    - rnmapbox-maps/DynamicLibrary (= 10.3.0)
+    - Turf
+  - rnmapbox-maps/DynamicLibrary (10.3.0):
+    - hermes-engine
+    - MapboxMaps (~> 11.18.2)
+    - RCTRequired
+    - RCTTypeSafety
+    - React
+    - React-Core
+    - React-Core-prebuilt
+    - React-featureflags
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Turf
+    - Yoga
   - RNScreens (4.24.0):
     - hermes-engine
     - RCTRequired
@@ -1953,6 +2010,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - Turf (4.0.0)
   - Yoga (0.0.0)
 
 DEPENDENCIES:
@@ -1997,6 +2055,7 @@ DEPENDENCIES:
   - React-Mapbuffer (from `../node_modules/react-native/ReactCommon`)
   - React-microtasksnativemodule (from `../node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
   - react-native-config (from `../node_modules/react-native-config`)
+  - "react-native-geolocation (from `../node_modules/@react-native-community/geolocation`)"
   - react-native-image-picker (from `../node_modules/react-native-image-picker`)
   - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
   - React-NativeModulesApple (from `../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)
@@ -2033,9 +2092,17 @@ DEPENDENCIES:
   - ReactCodegen (from `build/generated/ios/ReactCodegen`)
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
   - ReactNativeDependencies (from `../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec`)
+  - "rnmapbox-maps (from `../node_modules/@rnmapbox/maps`)"
   - RNScreens (from `../node_modules/react-native-screens`)
   - RNVectorIcons (from `../node_modules/react-native-vector-icons`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
+
+SPEC REPOS:
+  trunk:
+    - MapboxCommon
+    - MapboxCoreMaps
+    - MapboxMaps
+    - Turf
 
 EXTERNAL SOURCES:
   AsyncStorage:
@@ -2119,6 +2186,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon/react/nativemodule/microtasks"
   react-native-config:
     :path: "../node_modules/react-native-config"
+  react-native-geolocation:
+    :path: "../node_modules/@react-native-community/geolocation"
   react-native-image-picker:
     :path: "../node_modules/react-native-image-picker"
   react-native-safe-area-context:
@@ -2191,6 +2260,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon"
   ReactNativeDependencies:
     :podspec: "../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec"
+  rnmapbox-maps:
+    :path: "../node_modules/@rnmapbox/maps"
   RNScreens:
     :path: "../node_modules/react-native-screens"
   RNVectorIcons:
@@ -2202,6 +2273,9 @@ SPEC CHECKSUMS:
   AsyncStorage: 857a13f3c66a30d6b02efa09babba3d457e8e8ca
   FBLazyVector: c00c20551d40126351a6783c47ce75f5b374851b
   hermes-engine: 6476c55af7f250e47f708b894d1921d84928f194
+  MapboxCommon: c9dc807d8fefcdc2ed15b8a14c68109db74ac4f5
+  MapboxCoreMaps: 2f3f01c611d2375dd3e678384d6edf39102c5194
+  MapboxMaps: bd0a24605ad74a3dd140ef7bce64f96c056fda0b
   RCTDeprecation: 3bb167081b134461cfeb875ff7ae1945f8635257
   RCTRequired: 74839f55d5058a133a0bc4569b0afec750957f64
   RCTSwiftUI: 87a316382f3eab4dd13d2a0d0fd2adcce917361a
@@ -2239,6 +2313,7 @@ SPEC CHECKSUMS:
   React-Mapbuffer: 7f8bfbe3fcb2203db4ccb3975414af8cabe4bcd0
   React-microtasksnativemodule: ca1f33f7c98b76d923f550d39631eb4e05fa9aec
   react-native-config: 6188f674e4f4b3bdfd43c22886fb04f3103793ff
+  react-native-geolocation: c41d1ad8e832fa800b4e457c721e348bcc5aa147
   react-native-image-picker: 23540feacc79c63c60857f318fdfa8477c26e70a
   react-native-safe-area-context: 6b4966397ada0f7dd481e4486a2ef936834861a1
   React-NativeModulesApple: 9c1f8815ebd72cc1c75587fe588513f6dd9cb708
@@ -2275,8 +2350,10 @@ SPEC CHECKSUMS:
   ReactCodegen: b3184a229afd01e7f8058dd81b805b843caa2bf9
   ReactCommon: fe2a3af8975e63efa60f95fca8c34dc85deee360
   ReactNativeDependencies: 2ca74f752f9ccf149ba3c8b475568c75f779d4c4
+  rnmapbox-maps: 606ed24414ce13519dda3f3c898040d76bb0abcf
   RNScreens: 01b065ded2dfe7987bcce770ff3a196be417ff41
   RNVectorIcons: 97f26211c07d69e45b189f9dd0dbbe5e2d2b0b92
+  Turf: c9eb11a65d96af58cac523460fd40fec5061b081
   Yoga: e83c3121d079541e69f3c5c623faaaf933fb5812
 
 PODFILE CHECKSUM: aa5900f256cc1cd3d97c070a975d0272538d6319
