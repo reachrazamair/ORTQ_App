@@ -3,8 +3,10 @@ import {
   ActionSheetIOS,
   ActivityIndicator,
   Alert,
+  FlatList,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -29,14 +31,102 @@ type Props = {
   navigation: NativeStackNavigationProp<ProfileStackParamList, 'EditProfile'>;
 };
 
-type FieldErrors = Partial<Record<keyof EditProfileInput, string>>;
+type FieldErrors = Partial<Record<keyof EditProfileInput | 'stateId' | 'cityId', string>>;
+
+interface StateItem { id: string; name: string }
+interface CityItem { id: string; name: string; latitude: number; longitude: number }
+interface VehicleTypeItem { id: string; name: string }
 
 function SectionHeader({ title }: { title: string }) {
   return <Text style={styles.sectionHeader}>{title}</Text>;
 }
 
+function PickerRow({
+  label,
+  value,
+  placeholder,
+  onPress,
+  disabled,
+  error,
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  onPress: () => void;
+  disabled?: boolean;
+  error?: string;
+}) {
+  return (
+    <View style={styles.pickerWrap}>
+      <Text style={styles.pickerLabel}>{label}</Text>
+      <TouchableOpacity
+        style={[styles.pickerRow, !!error && styles.pickerRowError, disabled && styles.pickerRowDisabled]}
+        onPress={onPress}
+        disabled={disabled}
+        activeOpacity={0.7}
+      >
+        <Text style={[styles.pickerValue, !value && styles.pickerPlaceholder]}>
+          {value || placeholder}
+        </Text>
+        <Ionicons name="chevron-down" size={16} color="#9BA1A6" />
+      </TouchableOpacity>
+      {!!error && <Text style={styles.errorText}>{error}</Text>}
+    </View>
+  );
+}
+
+function ListPickerModal<T extends { id: string; name: string }>({
+  visible,
+  title,
+  items,
+  selectedId,
+  onSelect,
+  onClose,
+}: {
+  visible: boolean;
+  title: string;
+  items: T[];
+  selectedId: string;
+  onSelect: (item: T) => void;
+  onClose: () => void;
+}) {
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalSheet}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{title}</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={24} color={Colors.blueGrey} />
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={items}
+            keyExtractor={item => item.id}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[styles.modalItem, item.id === selectedId && styles.modalItemSelected]}
+                onPress={() => { onSelect(item); onClose(); }}
+              >
+                <Text style={[styles.modalItemText, item.id === selectedId && styles.modalItemTextSelected]}>
+                  {item.name}
+                </Text>
+                {item.id === selectedId && (
+                  <Ionicons name="checkmark" size={18} color={Colors.orange} />
+                )}
+              </TouchableOpacity>
+            )}
+            ItemSeparatorComponent={() => <View style={styles.modalSeparator} />}
+          />
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function EditProfileScreen({ navigation }: Props) {
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  const [backgroundUri, setBackgroundUri] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -49,9 +139,15 @@ export default function EditProfileScreen({ navigation }: Props) {
 
   // Address
   const [address, setAddress] = useState('');
-  const [city, setCity] = useState('');
-  const [state, setState] = useState('');
   const [zipCode, setZipCode] = useState('');
+
+  // Location pickers
+  const [stateId, setStateId] = useState('');
+  const [stateName, setStateName] = useState('');
+  const [cityId, setCityId] = useState('');
+  const [cityName, setCityName] = useState('');
+  const [cityLat, setCityLat] = useState<number | null>(null);
+  const [cityLon, setCityLon] = useState<number | null>(null);
 
   // Vehicle
   const [vehicleType, setVehicleType] = useState('');
@@ -63,6 +159,17 @@ export default function EditProfileScreen({ navigation }: Props) {
   // About
   const [aboutMe, setAboutMe] = useState('');
 
+  // Picker data
+  const [states, setStates] = useState<StateItem[]>([]);
+  const [cities, setCities] = useState<CityItem[]>([]);
+  const [vehicleTypes, setVehicleTypes] = useState<VehicleTypeItem[]>([]);
+  const [citiesLoading, setCitiesLoading] = useState(false);
+
+  // Modal visibility
+  const [stateModalOpen, setStateModalOpen] = useState(false);
+  const [cityModalOpen, setCityModalOpen] = useState(false);
+  const [vehicleModalOpen, setVehicleModalOpen] = useState(false);
+
   useEffect(() => {
     const load = async () => {
       const { data: authData } = await supabase.auth.getUser();
@@ -71,26 +178,50 @@ export default function EditProfileScreen({ navigation }: Props) {
 
       setEmail(user.email ?? '');
 
-      try {
-        const profile = await getProfile(user.id);
-        if (profile) {
-          setFullName(profile.full_name ?? '');
-          setAlias(profile.alias ?? '');
-          setPhone(profile.phone ?? '');
-          setAddress(profile.address ?? '');
-          setCity(profile.city?.name ?? '');
-          setState(profile.state?.name ?? '');
-          setZipCode(profile.zip_code ?? '');
-          setVehicleType(profile.vehicle_type ?? '');
-          setMake(profile.make ?? '');
-          setModel(profile.model ?? '');
-          setYear(profile.year ?? '');
-          setRigDescription(profile.rig_description ?? '');
-          setAboutMe(profile.about_me ?? '');
-          setAvatarUri(profile.profile_image_url ?? null);
+      // Load picker options in parallel with profile — use same RPC as web
+      const [variantsResult, profileData] = await Promise.all([
+        supabase.rpc('get_all_variants_about_trails'),
+        getProfile(user.id).catch(() => null),
+      ]);
+
+      console.log('[EditProfile] variants RPC:', JSON.stringify(variantsResult));
+      if (variantsResult.data) {
+        setStates(variantsResult.data.states ?? []);
+        setVehicleTypes(variantsResult.data.vehicle_types ?? []);
+      }
+
+      if (profileData) {
+        setFullName(profileData.full_name ?? '');
+        setAlias(profileData.alias ?? '');
+        setPhone(profileData.phone ?? '');
+        setAddress(profileData.address ?? '');
+        setZipCode(profileData.zip_code ?? '');
+        setVehicleType(profileData.vehicle_type ?? '');
+        setMake(profileData.make ?? '');
+        setModel(profileData.model ?? '');
+        setYear(profileData.year ?? '');
+        setRigDescription(profileData.rig_description ?? '');
+        setAboutMe(profileData.about_me ?? '');
+        setAvatarUri(profileData.profile_image_url ?? null);
+        setBackgroundUri(profileData.background_image_url ?? null);
+
+        if (profileData.state?.id) {
+          setStateId(profileData.state.id);
+          setStateName(profileData.state.name ?? '');
+
+          // Load cities for the saved state
+          const { data: cityRows } = await supabase.rpc('get_all_cities_by_state', {
+            state_id_arg: profileData.state.id,
+          });
+          if (cityRows) setCities(cityRows);
         }
-      } catch (err) {
-        console.error('[EditProfileScreen] getProfile failed:', err);
+
+        if (profileData.city?.id) {
+          setCityId(profileData.city.id);
+          setCityName(profileData.city.name ?? '');
+        }
+        setCityLat(profileData.latitude ?? null);
+        setCityLon(profileData.longitude ?? null);
       }
 
       setLoading(false);
@@ -99,8 +230,24 @@ export default function EditProfileScreen({ navigation }: Props) {
     load();
   }, []);
 
-  const openImagePicker = () => {
+  const loadCitiesForState = async (id: string) => {
+    setCitiesLoading(true);
+    setCities([]);
+    setCityId('');
+    setCityName('');
+    setCityLat(null);
+    setCityLon(null);
+    const { data } = await supabase.rpc('get_all_cities_by_state', { state_id_arg: id });
+    if (data) setCities(data);
+    setCitiesLoading(false);
+  };
+
+  const openImagePicker = (type: 'avatar' | 'background') => {
     const options = { mediaType: 'photo' as const, quality: 0.8 as const };
+    const onPicked = (uri: string) => {
+      if (type === 'avatar') setAvatarUri(uri);
+      else setBackgroundUri(uri);
+    };
 
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
@@ -108,61 +255,62 @@ export default function EditProfileScreen({ navigation }: Props) {
         buttonIndex => {
           if (buttonIndex === 1) {
             launchCamera(options, res => {
-              if (!res.didCancel && res.assets?.[0]?.uri) {
-                setAvatarUri(res.assets[0].uri);
-              }
+              if (!res.didCancel && res.assets?.[0]?.uri) onPicked(res.assets[0].uri!);
             });
           } else if (buttonIndex === 2) {
             launchImageLibrary(options, res => {
-              if (!res.didCancel && res.assets?.[0]?.uri) {
-                setAvatarUri(res.assets[0].uri);
-              }
+              if (!res.didCancel && res.assets?.[0]?.uri) onPicked(res.assets[0].uri!);
             });
           }
         },
       );
     } else {
-      Alert.alert('Profile Photo', 'Choose an option', [
+      Alert.alert('Photo', 'Choose an option', [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Take Photo',
           onPress: () =>
             launchCamera(options, res => {
-              if (!res.didCancel && res.assets?.[0]?.uri) setAvatarUri(res.assets[0].uri);
+              if (!res.didCancel && res.assets?.[0]?.uri) onPicked(res.assets[0].uri!);
             }),
         },
         {
           text: 'Choose from Library',
           onPress: () =>
             launchImageLibrary(options, res => {
-              if (!res.didCancel && res.assets?.[0]?.uri) setAvatarUri(res.assets[0].uri);
+              if (!res.didCancel && res.assets?.[0]?.uri) onPicked(res.assets[0].uri!);
             }),
         },
       ]);
     }
   };
 
-  const uploadAvatar = async (uri: string, userId: string): Promise<string | null> => {
+  const uploadImage = async (
+    bucket: string,
+    uri: string,
+    userId: string,
+    pathSuffix: string,
+  ): Promise<string | null> => {
     try {
       const response = await fetch(uri);
       const blob = await response.blob();
       const ext = uri.split('.').pop() ?? 'jpg';
-      const path = `${userId}/avatar.${ext}`;
+      const path = `${userId}/${pathSuffix}.${ext}`;
 
       const { error } = await supabase.storage
-        .from('avatars')
+        .from(bucket)
         .upload(path, blob, { upsert: true, contentType: `image/${ext}` });
 
       if (error) return null;
 
-      const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+      const { data } = supabase.storage.from(bucket).getPublicUrl(path);
       return `${data.publicUrl}?t=${Date.now()}`;
     } catch {
       return null;
     }
   };
 
-  const clearError = (field: keyof EditProfileInput) =>
+  const clearError = (field: keyof FieldErrors) =>
     setErrors(e => ({ ...e, [field]: undefined }));
 
   const handleSave = async () => {
@@ -170,11 +318,9 @@ export default function EditProfileScreen({ navigation }: Props) {
 
     const result = editProfileSchema.safeParse({
       fullName,
-      alias: alias || undefined,
+      alias,
       phone: phone || undefined,
-      address: address || undefined,
-      city: city || undefined,
-      state: state || undefined,
+      address,
       zipCode: zipCode || undefined,
       vehicleType: vehicleType || undefined,
       make: make || undefined,
@@ -184,13 +330,25 @@ export default function EditProfileScreen({ navigation }: Props) {
       aboutMe: aboutMe || undefined,
     });
 
+    const fieldErrors: FieldErrors = {};
+
     if (!result.success) {
-      const fieldErrors: FieldErrors = {};
       for (const issue of result.error.issues) {
         const field = issue.path[0] as keyof EditProfileInput;
         if (!fieldErrors[field]) fieldErrors[field] = issue.message;
       }
+    }
+
+    if (!stateId) fieldErrors.stateId = 'State is required';
+    if (!cityId) fieldErrors.cityId = 'City is required';
+
+    if (Object.keys(fieldErrors).length > 0) {
       setErrors(fieldErrors);
+      return;
+    }
+
+    if (!cityLat || !cityLon) {
+      Alert.alert('Error', 'Unable to determine coordinates for the selected city.');
       return;
     }
 
@@ -202,36 +360,22 @@ export default function EditProfileScreen({ navigation }: Props) {
 
     let avatarUrl: string | undefined;
     if (avatarUri && avatarUri.startsWith('file')) {
-      const uploaded = await uploadAvatar(avatarUri, userId);
+      const uploaded = await uploadImage('user_avatars', avatarUri, userId, 'avatar');
       if (uploaded) avatarUrl = uploaded;
     }
 
+    let backgroundUrl: string | null | undefined;
+    if (backgroundUri && backgroundUri.startsWith('file')) {
+      const uploaded = await uploadImage('user_backgrounds', backgroundUri, userId, 'background');
+      if (uploaded) backgroundUrl = uploaded;
+    }
+
     try {
-      let cityId: string | null = null;
-      if (city) {
-        const { data: cityRows } = await supabase
-          .from('cities')
-          .select('id')
-          .ilike('name', city)
-          .limit(1);
-        cityId = cityRows?.[0]?.id ?? null;
-      }
-
-      let stateId: string | null = null;
-      if (state) {
-        const { data: stateRows } = await supabase
-          .from('states')
-          .select('id')
-          .ilike('name', state)
-          .limit(1);
-        stateId = stateRows?.[0]?.id ?? null;
-      }
-
       await updateProfile(userId, {
         full_name: fullName,
         alias: alias || undefined,
         phone: phone || undefined,
-        address: address || undefined,
+        address,
         city_id: cityId,
         state: stateId,
         zip_code: zipCode || undefined,
@@ -242,6 +386,9 @@ export default function EditProfileScreen({ navigation }: Props) {
         rig_description: rigDescription || undefined,
         about_me: aboutMe || undefined,
         profile_image_url: avatarUrl,
+        background_image_url: backgroundUrl,
+        latitude: cityLat,
+        longitude: cityLon,
       });
 
       await supabase.auth.updateUser({ data: { full_name: fullName } });
@@ -281,8 +428,28 @@ export default function EditProfileScreen({ navigation }: Props) {
             <Text style={styles.subtitle}>Update your personal information</Text>
           </View>
 
+          {/* Background Image */}
+          <TouchableOpacity
+            style={styles.backgroundWrapper}
+            onPress={() => openImagePicker('background')}
+            disabled={saving}
+            activeOpacity={0.85}
+          >
+            {backgroundUri ? (
+              <Image source={{ uri: backgroundUri }} style={styles.backgroundImage} />
+            ) : (
+              <View style={styles.backgroundPlaceholder}>
+                <Ionicons name="image-outline" size={28} color="#9BA1A6" />
+                <Text style={styles.backgroundPlaceholderText}>Tap to add background photo</Text>
+              </View>
+            )}
+            <View style={styles.backgroundEditBadge}>
+              <Ionicons name="camera-outline" size={14} color="#fff" />
+            </View>
+          </TouchableOpacity>
+
           {/* Avatar */}
-          <TouchableOpacity style={styles.avatarWrapper} onPress={openImagePicker} disabled={saving}>
+          <TouchableOpacity style={styles.avatarWrapper} onPress={() => openImagePicker('avatar')} disabled={saving}>
             {avatarUri ? (
               <Image source={{ uri: avatarUri }} style={styles.avatar} />
             ) : (
@@ -300,7 +467,7 @@ export default function EditProfileScreen({ navigation }: Props) {
 
           <View style={styles.fieldGroup}>
             <CustomInput
-              label="Full Name"
+              label="Full Name *"
               placeholder="Enter your full name"
               value={fullName}
               onChangeText={text => { setFullName(text); clearError('fullName'); }}
@@ -308,7 +475,7 @@ export default function EditProfileScreen({ navigation }: Props) {
               error={errors.fullName}
             />
             <CustomInput
-              label="Alias (optional)"
+              label="Alias (Public Username) *"
               placeholder="Your trail name or nickname"
               value={alias}
               onChangeText={text => { setAlias(text); clearError('alias'); }}
@@ -317,7 +484,7 @@ export default function EditProfileScreen({ navigation }: Props) {
             />
             <CustomInput
               label="Phone (optional)"
-              placeholder="Enter your phone number"
+              placeholder="e.g. 123-456-7890"
               value={phone}
               onChangeText={text => { setPhone(text); clearError('phone'); }}
               editable={!saving}
@@ -331,32 +498,35 @@ export default function EditProfileScreen({ navigation }: Props) {
 
           <View style={styles.fieldGroup}>
             <CustomInput
-              label="Street Address (optional)"
+              label="Address Line *"
               placeholder="123 Trail Rd"
               value={address}
               onChangeText={text => { setAddress(text); clearError('address'); }}
               editable={!saving}
               error={errors.address}
             />
-            <CustomInput
-              label="City (optional)"
-              placeholder="Enter your city"
-              value={city}
-              onChangeText={text => { setCity(text); clearError('city'); }}
-              editable={!saving}
-              error={errors.city}
+
+            <PickerRow
+              label="State *"
+              value={stateName}
+              placeholder="Select state"
+              onPress={() => setStateModalOpen(true)}
+              disabled={saving}
+              error={errors.stateId}
             />
-            <CustomInput
-              label="State (optional)"
-              placeholder="Enter your state"
-              value={state}
-              onChangeText={text => { setState(text); clearError('state'); }}
-              editable={!saving}
-              error={errors.state}
+
+            <PickerRow
+              label="City *"
+              value={cityName}
+              placeholder={!stateId ? 'Select state first' : citiesLoading ? 'Loading cities…' : 'Select city'}
+              onPress={() => { if (stateId && !citiesLoading) setCityModalOpen(true); }}
+              disabled={saving || !stateId || citiesLoading}
+              error={errors.cityId}
             />
+
             <CustomInput
               label="Zip Code (optional)"
-              placeholder="Enter your zip code"
+              placeholder="e.g. 90210"
               value={zipCode}
               onChangeText={text => { setZipCode(text); clearError('zipCode'); }}
               editable={!saving}
@@ -369,13 +539,12 @@ export default function EditProfileScreen({ navigation }: Props) {
           <SectionHeader title="Vehicle Information" />
 
           <View style={styles.fieldGroup}>
-            <CustomInput
+            <PickerRow
               label="Vehicle Type (optional)"
-              placeholder="e.g. Truck, Jeep, SUV"
               value={vehicleType}
-              onChangeText={text => { setVehicleType(text); clearError('vehicleType'); }}
-              editable={!saving}
-              error={errors.vehicleType}
+              placeholder="Select vehicle type"
+              onPress={() => setVehicleModalOpen(true)}
+              disabled={saving}
             />
             <CustomInput
               label="Make (optional)"
@@ -404,7 +573,6 @@ export default function EditProfileScreen({ navigation }: Props) {
               maxLength={4}
             />
 
-            {/* Multiline for rig description */}
             <View style={styles.textAreaWrap}>
               <Text style={styles.textAreaLabel}>Rig Description (optional)</Text>
               <TextInput
@@ -461,6 +629,47 @@ export default function EditProfileScreen({ navigation }: Props) {
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* State picker modal */}
+      <ListPickerModal
+        visible={stateModalOpen}
+        title="Select State"
+        items={states}
+        selectedId={stateId}
+        onSelect={item => {
+          setStateId(item.id);
+          setStateName(item.name);
+          clearError('stateId');
+          loadCitiesForState(item.id);
+        }}
+        onClose={() => setStateModalOpen(false)}
+      />
+
+      {/* City picker modal */}
+      <ListPickerModal
+        visible={cityModalOpen}
+        title="Select City"
+        items={cities}
+        selectedId={cityId}
+        onSelect={item => {
+          setCityId(item.id);
+          setCityName(item.name);
+          setCityLat((item as CityItem).latitude ?? null);
+          setCityLon((item as CityItem).longitude ?? null);
+          clearError('cityId');
+        }}
+        onClose={() => setCityModalOpen(false)}
+      />
+
+      {/* Vehicle type picker modal */}
+      <ListPickerModal
+        visible={vehicleModalOpen}
+        title="Select Vehicle Type"
+        items={vehicleTypes}
+        selectedId={vehicleTypes.find(v => v.name === vehicleType)?.id ?? ''}
+        onSelect={item => setVehicleType(item.name)}
+        onClose={() => setVehicleModalOpen(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -485,9 +694,42 @@ const styles = StyleSheet.create({
   },
   backArrow: { fontSize: 20, color: Colors.blueGrey },
 
-  titleWrap: { marginBottom: 32 },
+  titleWrap: { marginBottom: 24 },
   title: { fontFamily: Fonts.gothamBold, fontSize: 28, color: Colors.blueGrey, marginBottom: 6 },
   subtitle: { fontFamily: Fonts.firaSansRegular, fontSize: 15, color: '#687076' },
+
+  // Background image
+  backgroundWrapper: {
+    height: 120,
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 16,
+    backgroundColor: '#F0F0F0',
+    position: 'relative',
+  },
+  backgroundImage: { width: '100%', height: '100%' },
+  backgroundPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  backgroundPlaceholderText: {
+    fontFamily: Fonts.firaSansRegular,
+    fontSize: 13,
+    color: '#9BA1A6',
+  },
+  backgroundEditBadge: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.orange,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   // Avatar
   avatarWrapper: { alignSelf: 'center', marginBottom: 32 },
@@ -531,6 +773,25 @@ const styles = StyleSheet.create({
 
   fieldGroup: { gap: 20, marginBottom: 24 },
 
+  // Picker row
+  pickerWrap: { gap: 8 },
+  pickerLabel: { fontFamily: Fonts.firaSansBold, fontSize: 14, color: Colors.blueGrey },
+  pickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  pickerRowError: { borderColor: Colors.error },
+  pickerRowDisabled: { opacity: 0.5 },
+  pickerValue: { fontFamily: Fonts.firaSansRegular, fontSize: 16, color: Colors.blueGrey, flex: 1 },
+  pickerPlaceholder: { color: '#9BA1A6' },
+
   // Multiline textarea
   textAreaWrap: { gap: 8 },
   textAreaLabel: { fontFamily: Fonts.firaSansBold, fontSize: 14, color: Colors.blueGrey },
@@ -570,4 +831,38 @@ const styles = StyleSheet.create({
   },
   disabledButton: { opacity: 0.7 },
   saveButtonText: { fontFamily: Fonts.gothamBold, fontSize: 16, color: '#fff' },
+
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+    paddingBottom: 32,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  modalTitle: { fontFamily: Fonts.gothamBold, fontSize: 17, color: Colors.blueGrey },
+  modalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
+  modalItemSelected: { backgroundColor: Colors.orange + '12' },
+  modalItemText: { fontFamily: Fonts.firaSansRegular, fontSize: 15, color: Colors.blueGrey },
+  modalItemTextSelected: { color: Colors.orange, fontFamily: Fonts.firaSansBold },
+  modalSeparator: { height: 1, backgroundColor: '#F0F0F0' },
 });
