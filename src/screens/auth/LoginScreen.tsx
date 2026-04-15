@@ -17,6 +17,7 @@ import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { supabase } from '../../lib/supabase';
+import { getProfile } from '../../lib/profile';
 import { loginSchema } from '../../utils/schemas';
 import CustomInput from '../../components/common/CustomInput';
 
@@ -63,15 +64,30 @@ export default function LoginScreen({ navigation }: Props) {
     }
 
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    setLoading(false);
 
     if (error) {
+      setLoading(false);
       Alert.alert('Sign In Failed', error.message);
+      return;
     }
+
+    const profile = await getProfile(data.user.id);
+
+    if (!profile || profile.status !== 'active') {
+      await supabase.auth.signOut();
+      setLoading(false);
+      Alert.alert(
+        'Account Unavailable',
+        'Your account has been suspended or deleted. Please contact support for more information.',
+      );
+      return;
+    }
+
+    setLoading(false);
   };
 
   return (
