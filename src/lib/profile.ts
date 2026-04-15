@@ -16,7 +16,7 @@ export interface UserProfile {
   about_me: string | null;
   profile_image_url: string | null;
   keys: number;
-  points: number;
+  status: string;
   city: { id: string; name: string } | null;
   state: { id: string; name: string; abbreviation: string; region: { name: string } | null } | null;
 }
