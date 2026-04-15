@@ -13,6 +13,7 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -83,6 +84,17 @@ type Trail = {
 
 type Variant = { id: string; name: string; color: string };
 type BaseVariant = { id: string; name: string };
+
+type Quest = {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  keys_provided: number;
+  start_date: string;
+  end_date: string;
+  status: string;
+};
 
 type Variants = {
   trail_types: Variant[];
@@ -212,6 +224,139 @@ function CardRow({ icon, children }: { icon: string; children: React.ReactNode }
       <Icon name={icon} size={14} color={Colors.orange} style={styles.cardRowIcon} />
       <Text style={styles.cardRowText}>{children}</Text>
     </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Join Quest Modal
+// ---------------------------------------------------------------------------
+
+function JoinQuestModal({
+  visible,
+  quests,
+  onClose,
+}: {
+  visible: boolean;
+  quests: Quest[];
+  onClose: () => void;
+}) {
+  const [selectedQuestId, setSelectedQuestId] = useState<string | null>(null);
+  const [promoCode, setPromoCode] = useState('');
+  const [promoError, setPromoError] = useState('');
+
+  const handleClose = () => {
+    setSelectedQuestId(null);
+    setPromoCode('');
+    setPromoError('');
+    onClose();
+  };
+
+  const handleConfirmPurchase = () => {
+    if (!selectedQuestId) {
+      Alert.alert('No Quest Selected', 'Please select a quest to join.');
+      return;
+    }
+    Alert.alert('Payment', 'Stripe payment integration coming soon.');
+    handleClose();
+  };
+
+  const formatDate = (iso: string) =>
+    new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
+      <View style={styles.filterOverlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
+        <View style={styles.filterSheet}>
+          <View style={styles.filterHeader}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Icon name="ticket-outline" size={20} color={Colors.orange} />
+              <Text style={styles.filterTitle}>Join a Quest</Text>
+            </View>
+            <TouchableOpacity onPress={handleClose}>
+              <Icon name="close" size={22} color={Colors.blueGrey} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+            <Text style={styles.joinQuestSubtitle}>Select an available quest to begin your adventure.</Text>
+
+            {quests.length === 0 ? (
+              <Text style={styles.joinQuestEmpty}>
+                There are no active or upcoming quests available to join.
+              </Text>
+            ) : (
+              quests.map(quest => (
+                <TouchableOpacity
+                  key={quest.id}
+                  style={[styles.questCard, selectedQuestId === quest.id && styles.questCardSelected]}
+                  onPress={() => setSelectedQuestId(quest.id)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.questCardRadio}>
+                    <View style={[styles.radioOuter, selectedQuestId === quest.id && styles.radioOuterActive]}>
+                      {selectedQuestId === quest.id && <View style={styles.radioInner} />}
+                    </View>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.questTitle}>{quest.title}</Text>
+                    <Text style={styles.questDescription}>{quest.description}</Text>
+                    <View style={styles.questMeta}>
+                      <Icon name="calendar-outline" size={12} color="#9AA0A6" />
+                      <Text style={styles.questMetaText}>
+                        {formatDate(quest.start_date)} – {formatDate(quest.end_date)}
+                      </Text>
+                    </View>
+                    <View style={styles.questMeta}>
+                      <Icon name="key-outline" size={12} color="#9AA0A6" />
+                      <Text style={styles.questMetaText}>{quest.keys_provided} Keys</Text>
+                    </View>
+                    <Text style={styles.questPrice}>${quest.price}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
+
+            {selectedQuestId && (
+              <View style={styles.promoWrap}>
+                <Text style={styles.promoLabel}>Promo Code</Text>
+                <View style={styles.promoRow}>
+                  <TextInput
+                    style={styles.promoInput}
+                    value={promoCode}
+                    onChangeText={t => { setPromoCode(t.toUpperCase()); setPromoError(''); }}
+                    placeholder="Enter Promo Code"
+                    placeholderTextColor="#9AA0A6"
+                    autoCapitalize="characters"
+                    maxLength={20}
+                  />
+                  <TouchableOpacity style={styles.promoApplyBtn} onPress={() => {
+                    if (!promoCode) { setPromoError('Promo code cannot be empty.'); return; }
+                    Alert.alert('Promo Code', 'Promo code validation coming soon.');
+                  }}>
+                    <Text style={styles.promoApplyText}>Apply</Text>
+                  </TouchableOpacity>
+                </View>
+                {promoError ? <Text style={styles.promoError}>{promoError}</Text> : null}
+              </View>
+            )}
+          </ScrollView>
+
+          <View style={styles.filterActions}>
+            <TouchableOpacity style={styles.filterResetBtn} onPress={handleClose}>
+              <Text style={styles.filterResetText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.filterApplyBtn, !selectedQuestId && { opacity: 0.5 }]}
+              onPress={handleConfirmPurchase}
+              disabled={!selectedQuestId}
+            >
+              <Text style={styles.filterApplyText}>Confirm & Pay</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -389,14 +534,20 @@ function TrailCard({
   trail,
   variants,
   userKeys,
+  isUserParticipant,
+  activeQuests,
   onShowMore,
   onUnlock,
+  onJoinQuest,
 }: {
   trail: Trail;
   variants: Variants;
   userKeys: number;
+  isUserParticipant: boolean;
+  activeQuests: Quest[];
   onShowMore: (t: Trail) => void;
   onUnlock: (t: Trail) => void;
+  onJoinQuest: () => void;
 }) {
   const isLocked = trail.user_trail_status === 'locked';
   const { hidden_point } = trail;
@@ -530,7 +681,7 @@ function TrailCard({
           </TouchableOpacity>
         )}
 
-        {isLocked && canUnlock && (
+        {isLocked && canUnlock && isUserParticipant && (
           <TouchableOpacity style={[styles.footerBtn, styles.footerBtnUnlock]} onPress={() => onUnlock(trail)}>
             <Icon name="key-outline" size={15} color="#fff" />
             <Text style={styles.footerBtnText}>
@@ -539,8 +690,15 @@ function TrailCard({
           </TouchableOpacity>
         )}
 
+        {isLocked && canUnlock && !isUserParticipant && (
+          <TouchableOpacity style={[styles.footerBtn, styles.footerBtnUnlock]} onPress={onJoinQuest}>
+            <Icon name="ticket-outline" size={15} color="#fff" />
+            <Text style={styles.footerBtnText}>Join a Quest</Text>
+          </TouchableOpacity>
+        )}
+
         {isLocked && !canUnlock && (
-          <TouchableOpacity style={[styles.footerBtn, styles.footerBtnOutline]}>
+          <TouchableOpacity style={[styles.footerBtn, styles.footerBtnOutline]} onPress={onJoinQuest}>
             <Icon name="add-circle-outline" size={15} color={Colors.blueGrey} />
             <Text style={styles.footerBtnOutlineText}>Buy More Keys</Text>
           </TouchableOpacity>
@@ -765,6 +923,11 @@ export default function ExplorerScreen() {
   const [userId, setUserId] = useState<string | null>(null);
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLon, setUserLon] = useState<number | null>(null);
+  const [profileLat, setProfileLat] = useState<number | null>(null);
+  const [profileLon, setProfileLon] = useState<number | null>(null);
+  const [isUserParticipant, setIsUserParticipant] = useState(false);
+  const [activeQuests, setActiveQuests] = useState<Quest[]>([]);
+  const [showJoinQuest, setShowJoinQuest] = useState(false);
   const [hasLocation, setHasLocation] = useState(false);
   const [loadingLocation, setLoadingLocation] = useState(true);
   const [loadingTrails, setLoadingTrails] = useState(false);
@@ -791,7 +954,23 @@ export default function ExplorerScreen() {
         setUserId(authData.user.id);
         try {
           const profile = await getProfile(authData.user.id);
-          if (profile) setUserKeys(profile.keys ?? 0);
+          if (profile) {
+            setUserKeys(profile.keys ?? 0);
+            if (profile.latitude != null && profile.longitude != null) {
+              setProfileLat(profile.latitude);
+              setProfileLon(profile.longitude);
+            }
+          }
+        } catch { /* non-blocking */ }
+
+        try {
+          const { data: questData } = await supabase.rpc('get_active_quests_and_check_user', {
+            input_user_id: authData.user.id,
+          });
+          if (questData) {
+            setIsUserParticipant(questData.isUserParticipant ?? false);
+            setActiveQuests(questData.quests ?? []);
+          }
         } catch { /* non-blocking */ }
       }
 
@@ -829,6 +1008,11 @@ export default function ExplorerScreen() {
           },
           () => {
             if (cancelled) return;
+            if (profileLat != null && profileLon != null) {
+              setUserLat(profileLat);
+              setUserLon(profileLon);
+              setHasLocation(true);
+            }
             setLoadingLocation(false);
           },
           { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
@@ -837,7 +1021,7 @@ export default function ExplorerScreen() {
 
       getLocation();
       return () => { cancelled = true; };
-    }, []),
+    }, [profileLat, profileLon]),
   );
 
   // --- Fetch trails ---
@@ -947,10 +1131,13 @@ export default function ExplorerScreen() {
       trail={item}
       variants={variants}
       userKeys={userKeys}
+      isUserParticipant={isUserParticipant}
+      activeQuests={activeQuests}
       onShowMore={t => setSelectedTrail(t)}
       onUnlock={handleUnlock}
+      onJoinQuest={() => setShowJoinQuest(true)}
     />
-  ), [variants, userKeys, handleUnlock]);
+  ), [variants, userKeys, isUserParticipant, activeQuests, handleUnlock]);
 
   const isLoading = loadingLocation || loadingTrails;
 
@@ -1050,6 +1237,12 @@ export default function ExplorerScreen() {
         variants={variants}
         visible={!!selectedTrail}
         onClose={() => setSelectedTrail(null)}
+      />
+
+      <JoinQuestModal
+        visible={showJoinQuest}
+        quests={activeQuests}
+        onClose={() => setShowJoinQuest(false)}
       />
     </SafeAreaView>
   );
@@ -1304,4 +1497,71 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   filterApplyText: { fontFamily: Fonts.firaSansBold, fontSize: 14, color: '#fff' },
+
+  // Join Quest Modal
+  joinQuestSubtitle: {
+    fontFamily: Fonts.firaSansRegular,
+    fontSize: 13,
+    color: '#687076',
+    marginBottom: 16,
+  },
+  joinQuestEmpty: {
+    fontFamily: Fonts.firaSansRegular,
+    fontSize: 14,
+    color: '#9AA0A6',
+    textAlign: 'center',
+    paddingVertical: 20,
+  },
+  questCard: {
+    flexDirection: 'row',
+    gap: 12,
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+  },
+  questCardSelected: {
+    borderColor: Colors.orange,
+    borderWidth: 2,
+  },
+  questCardRadio: { paddingTop: 2 },
+  radioOuter: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: '#9AA0A6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioOuterActive: { borderColor: Colors.orange },
+  radioInner: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: Colors.orange,
+  },
+  questTitle: { fontFamily: Fonts.firaSansBold, fontSize: 14, color: Colors.blueGrey, marginBottom: 4 },
+  questDescription: { fontFamily: Fonts.firaSansRegular, fontSize: 12, color: '#687076', marginBottom: 6 },
+  questMeta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 },
+  questMetaText: { fontFamily: Fonts.firaSansRegular, fontSize: 11, color: '#9AA0A6' },
+  questPrice: { fontFamily: Fonts.gothamBold, fontSize: 16, color: Colors.orange, marginTop: 4 },
+  promoWrap: { marginTop: 8, marginBottom: 4 },
+  promoLabel: { fontFamily: Fonts.firaSansBold, fontSize: 13, color: Colors.blueGrey, marginBottom: 8 },
+  promoRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  promoInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontFamily: Fonts.firaSansRegular,
+    fontSize: 14,
+    color: Colors.blueGrey,
+  },
+  promoApplyBtn: { paddingHorizontal: 14, paddingVertical: 10 },
+  promoApplyText: { fontFamily: Fonts.firaSansBold, fontSize: 13, color: Colors.orange },
+  promoError: { fontFamily: Fonts.firaSansRegular, fontSize: 12, color: '#EF4444', marginTop: 4 },
 });
