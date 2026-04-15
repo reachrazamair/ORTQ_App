@@ -27,13 +27,28 @@ export const forgotPasswordSchema = z.object({
 });
 
 export const editProfileSchema = z.object({
-  fullName: z.string().min(2, 'Full name must be at least 2 characters'),
-  alias: z.string().optional(),
-  phone: z.string().optional(),
-  address: z.string().optional(),
-  city: z.string().optional(),
-  state: z.string().optional(),
-  zipCode: z.string().optional(),
+  fullName: z
+    .string()
+    .min(1, 'Full name is required')
+    .regex(/^[a-zA-Z\s]+$/, 'Full name can only contain letters and spaces'),
+  alias: z
+    .string()
+    .min(3, 'Alias must be at least 3 characters')
+    .max(20, 'Alias cannot exceed 20 characters')
+    .regex(/^[a-zA-Z0-9_-]+$/, 'Alias can only contain letters, numbers, underscores, or dashes'),
+  phone: z
+    .string()
+    .optional()
+    .refine(val => !val || /^\(?\d{3}\)?[- ]?\d{3}[- ]?\d{4}$/.test(val), {
+      message: 'Phone number must be valid (e.g., 123-456-7890)',
+    }),
+  address: z.string().min(5, 'Address Line must be at least 5 characters'),
+  zipCode: z
+    .string()
+    .optional()
+    .refine(val => !val || val.trim() === '' || /^\d{5}(-\d{4})?$/.test(val), {
+      message: 'Zip code must be 5 digits or ZIP+4 format',
+    }),
   vehicleType: z.string().optional(),
   make: z.string().optional(),
   model: z.string().optional(),
