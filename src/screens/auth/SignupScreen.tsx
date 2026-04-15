@@ -84,17 +84,27 @@ export default function SignupScreen({ navigation }: Props) {
       email,
       password,
     });
-    setLoading(false);
 
     if (error) {
+      setLoading(false);
       Alert.alert('Sign Up Failed', error.message);
-    } else {
-      Alert.alert(
-        'Success',
-        'Registration successful! Please check your email for a confirmation link.',
-        [{ text: 'OK', onPress: () => navigation.navigate('Login') }],
-      );
+      return;
     }
+
+    try {
+      await supabase.functions.invoke('send-email', {
+        body: { to: email, templateType: 'welcome' },
+      });
+    } catch {
+      // Non-blocking — welcome email failure should not stop signup
+    }
+
+    setLoading(false);
+    Alert.alert(
+      'Success',
+      'Registration successful! Please check your email for a confirmation link.',
+      [{ text: 'OK', onPress: () => navigation.navigate('Login') }],
+    );
   };
 
   return (
