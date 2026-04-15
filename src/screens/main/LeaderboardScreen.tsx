@@ -289,15 +289,28 @@ export default function LeaderboardScreen() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch regions + current user once on mount
+  // Fetch regions + current user once on mount, default to user's own region
   useEffect(() => {
     const init = async () => {
       const [{ data: authData }, { data: regionRows }] = await Promise.all([
         supabase.auth.getUser(),
         supabase.from('regions').select('id, name').order('name'),
       ]);
-      setCurrentUserId(authData.user?.id ?? null);
+
+      const userId = authData.user?.id ?? null;
+      setCurrentUserId(userId);
       setRegions(regionRows ?? []);
+
+      if (userId) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('state:states(region:regions(id))')
+          .eq('id', userId)
+          .single();
+
+        const regionId = (profile?.state as any)?.region?.id;
+        if (regionId) setSelectedRegion(regionId);
+      }
     };
     init();
   }, []);
@@ -401,7 +414,7 @@ export default function LeaderboardScreen() {
             {!isLoading &&
               usersWithPosition.map((rankedUser, index) => (
                 <UserRow
-                  key={rankedUser.user_id}
+                  key={`${rankedUser.user_id}-${index}`}
                   rankedUser={rankedUser}
                   isCurrentUser={rankedUser.user_id === currentUserId}
                   isLast={index === usersWithPosition.length - 1}
