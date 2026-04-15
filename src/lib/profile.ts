@@ -15,10 +15,16 @@ export interface UserProfile {
   rig_description: string | null;
   about_me: string | null;
   profile_image_url: string | null;
+  background_image_url: string | null;
   keys: number;
   status: string;
+  latitude: number | null;
+  longitude: number | null;
+  created_at: string | null;
+  updated_at: string | null;
+  roles: { name: string } | null;
   city: { id: string; name: string } | null;
-  state: { id: string; name: string; abbreviation: string; region: { name: string } | null } | null;
+  state: { id: string; name: string; abbreviation: string; region: { id: string; name: string } | null } | null;
 }
 
 export async function getProfile(userId: string): Promise<UserProfile | null> {
@@ -26,7 +32,8 @@ export async function getProfile(userId: string): Promise<UserProfile | null> {
     .from('profiles')
     .select(`
       *,
-      state:states (id, name, abbreviation, region:regions (name)),
+      roles (name),
+      state:states (id, name, abbreviation, region:regions (id, name)),
       city:cities (id, name)
     `)
     .eq('id', userId)
@@ -56,6 +63,9 @@ export interface UpdateProfileData {
   rig_description?: string;
   about_me?: string;
   profile_image_url?: string;
+  background_image_url?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export async function updateProfile(
