@@ -17,26 +17,17 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-// TODO: install @react-native-community/geolocation, then replace the stub below
-// import Geolocation from '@react-native-community/geolocation';
-const Geolocation = {
-  getCurrentPosition: (
-    success: (pos: { coords: { latitude: number; longitude: number } }) => void,
-    _error?: () => void,
-    _opts?: object,
-  ) => {
-    // Dev stub — hardcoded Denver, CO coordinates for testing
-    success({ coords: { latitude: 39.7392, longitude: -104.9903 } });
-  },
-};
+import Geolocation from '@react-native-community/geolocation';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Config from 'react-native-config';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 import { supabase } from '../../lib/supabase';
 import { getProfile } from '../../lib/profile';
+import { downloadOfflinePack, deleteOfflinePack } from '../../lib/offlineMap';
+import { saveTrailToCache } from '../../lib/trailCache';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -539,6 +530,7 @@ function TrailCard({
   onShowMore,
   onUnlock,
   onJoinQuest,
+  onViewOnMap,
 }: {
   trail: Trail;
   variants: Variants;
@@ -548,6 +540,7 @@ function TrailCard({
   onShowMore: (t: Trail) => void;
   onUnlock: (t: Trail) => void;
   onJoinQuest: () => void;
+  onViewOnMap: (trailId: string) => void;
 }) {
   const isLocked = trail.user_trail_status === 'locked';
   const { hidden_point } = trail;
@@ -668,14 +661,14 @@ function TrailCard({
 
       <View style={styles.cardFooter}>
         {trail.user_trail_status === 'completed' && (
-          <TouchableOpacity style={[styles.footerBtn, styles.footerBtnPrimary]}>
+          <TouchableOpacity style={[styles.footerBtn, styles.footerBtnPrimary]} onPress={() => onViewOnMap(trail.id)}>
             <Icon name="location-outline" size={15} color="#fff" />
             <Text style={styles.footerBtnText}>View on Map</Text>
           </TouchableOpacity>
         )}
 
         {trail.user_trail_status === 'unlocked' && (
-          <TouchableOpacity style={[styles.footerBtn, styles.footerBtnPrimary]}>
+          <TouchableOpacity style={[styles.footerBtn, styles.footerBtnPrimary]} onPress={() => onViewOnMap(trail.id)}>
             <Icon name="location-outline" size={15} color="#fff" />
             <Text style={styles.footerBtnText}>Verify Location</Text>
           </TouchableOpacity>
@@ -937,6 +930,7 @@ export default function ExplorerScreen() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedTrail, setSelectedTrail] = useState<Trail | null>(null);
 
+  const navigation = useNavigation<any>();
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
 
@@ -1117,6 +1111,21 @@ export default function ExplorerScreen() {
                 prev?.id === trail.id ? { ...prev, user_trail_status: 'unlocked', hidden_point: data } : prev,
               );
               Alert.alert('Trail Unlocked!', `${remaining} key${remaining !== 1 ? 's' : ''} remaining.`);
+
+              // Download offline map tiles and cache trail data
+              if (data?.latitude && data?.longitude) {
+                downloadOfflinePack(trail.id, data).catch(() => {});
+              }
+              saveTrailToCache({
+                id: trail.id,
+                name: trail.name,
+                city: trail.city,
+                state: trail.state,
+                difficulty: trail.difficulty,
+                distance_tolerance: trail.distance_tolerance,
+                user_trail_status: 'unlocked',
+                hidden_point: data ?? null,
+              }).catch(() => {});
             } catch (err) {
               Alert.alert('Error', err instanceof Error ? err.message : 'Failed to unlock trail.');
             }
@@ -1136,6 +1145,7 @@ export default function ExplorerScreen() {
       onShowMore={t => setSelectedTrail(t)}
       onUnlock={handleUnlock}
       onJoinQuest={() => setShowJoinQuest(true)}
+      onViewOnMap={trailId => navigation.navigate('Map', { trailId })}
     />
   ), [variants, userKeys, isUserParticipant, activeQuests, handleUnlock]);
 
@@ -1196,7 +1206,7 @@ export default function ExplorerScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F5F5F5" />
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <FlatList
         style={styles.container}
         data={hasLocation && !loadingLocation ? trails : []}
@@ -1253,7 +1263,7 @@ export default function ExplorerScreen() {
 // ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F5F5F5' },
+  safeArea: { flex: 1, backgroundColor: '#fff' },
   container: { flex: 1, backgroundColor: '#F5F5F5' },
   listContent: { paddingBottom: 40 },
 
