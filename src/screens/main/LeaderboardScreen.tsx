@@ -414,7 +414,7 @@ export default function LeaderboardScreen() {
             {!isLoading &&
               usersWithPosition.map((rankedUser, index) => (
                 <UserRow
-                  key={`${rankedUser.user_id}-${index}`}
+                  key={rankedUser.user_id}
                   rankedUser={rankedUser}
                   isCurrentUser={rankedUser.user_id === currentUserId}
                   isLast={index === usersWithPosition.length - 1}
