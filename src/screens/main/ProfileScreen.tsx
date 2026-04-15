@@ -66,6 +66,10 @@ export default function ProfileScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [keys, setKeys] = useState(0);
+  const [totalPoints, setTotalPoints] = useState(0);
+  const [totalTrails, setTotalTrails] = useState(0);
+  const [totalQuests, setTotalQuests] = useState(0);
   const [loading, setLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -81,15 +85,30 @@ export default function ProfileScreen({ navigation }: Props) {
         try {
           const profile = await getProfile(user.id);
           if (profile) {
-            setDisplayName(profile.full_name ?? '');
+            setDisplayName(profile.alias ?? profile.full_name ?? '');
             setAvatarUrl(profile.profile_image_url ?? null);
+            setKeys(profile.keys ?? 0);
           }
         } catch (err) {
           console.error('[ProfileScreen] getProfile failed:', err);
-          // fallback to auth metadata
           const meta = user.user_metadata;
           setDisplayName(meta?.full_name ?? meta?.name ?? '');
           setAvatarUrl(meta?.avatar_url ?? null);
+        }
+
+        try {
+          const { data: questRows } = await supabase
+            .from('user_quests')
+            .select('points_earned, trails_completed_count')
+            .eq('user_id', user.id);
+
+          if (questRows) {
+            setTotalPoints(questRows.reduce((s, q) => s + (q.points_earned || 0), 0));
+            setTotalTrails(questRows.reduce((s, q) => s + (q.trails_completed_count || 0), 0));
+            setTotalQuests(questRows.length);
+          }
+        } catch (err) {
+          console.error('[ProfileScreen] user_quests fetch failed:', err);
         }
 
         setLoading(false);
@@ -155,11 +174,11 @@ export default function ProfileScreen({ navigation }: Props) {
 
         {/* Stats */}
         <View style={styles.statsRow}>
-          <StatCard value={0} label="Points" />
+          <StatCard value={totalPoints} label="Points" />
           <View style={styles.statDivider} />
-          <StatCard value={0} label="Trails" />
+          <StatCard value={totalTrails} label="Trails" />
           <View style={styles.statDivider} />
-          <StatCard value={0} label="Quests" />
+          <StatCard value={totalQuests} label="Quests" />
         </View>
 
         {/* Key Wallet */}
@@ -169,7 +188,7 @@ export default function ProfileScreen({ navigation }: Props) {
             <Text style={styles.keyWalletSub}>Keys available to unlock trails</Text>
           </View>
           <View style={styles.keyCountWrap}>
-            <Text style={styles.keyCount}>0</Text>
+            <Text style={styles.keyCount}>{keys}</Text>
             <Text style={styles.keyUnit}>Keys</Text>
           </View>
         </View>
