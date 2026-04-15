@@ -43,6 +43,27 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
     }
 
     setLoading(true);
+
+    const { data: statusData, error: statusError } = await supabase.functions.invoke(
+      'check-user-status',
+      { body: { email } },
+    );
+
+    if (statusError) {
+      setLoading(false);
+      Alert.alert('Request Failed', statusError.message);
+      return;
+    }
+
+    if (statusData?.exists && statusData?.status !== 'active') {
+      setLoading(false);
+      Alert.alert(
+        'Account Unavailable',
+        'Your account has been suspended or deleted. Please contact support for more information.',
+      );
+      return;
+    }
+
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(
       email,
       { redirectTo: 'ortq://reset-password' },
