@@ -226,13 +226,13 @@ export default function ProfileScreen({ navigation }: Props) {
           <MenuRow
             icon="information-circle-outline"
             label="About ORTQ"
-            onPress={() => {}}
+            onPress={() => navigation.navigate('AppInfo', { title: 'About ORTQ' })}
           />
           <View style={styles.rowDivider} />
           <MenuRow
             icon="shield-checkmark-outline"
             label="Privacy Policy"
-            onPress={() => {}}
+            onPress={() => navigation.navigate('AppInfo', { title: 'Privacy Policy' })}
           />
         </View>
 
