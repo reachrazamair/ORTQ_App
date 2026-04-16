@@ -1060,9 +1060,8 @@ export default function ExplorerScreen() {
       console.error('[ExplorerScreen] loadPage failed — loading from cache:', err);
       if (pageNum === 0) {
         const cached = await getCachedTrails();
-        const unlocked = cached.filter(t => t.user_trail_status !== 'completed');
-        if (unlocked.length > 0) {
-          const asTrails: Trail[] = unlocked.map(t => ({
+        if (cached.length > 0) {
+          const asTrails: Trail[] = cached.map(t => ({
             id: t.id,
             name: t.name,
             city: t.city,
