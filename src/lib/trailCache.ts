@@ -69,6 +69,16 @@ export async function saveTrailToCache(trail: CachedTrail): Promise<void> {
   } catch {}
 }
 
+export async function removeTrailFromCache(trailId: string): Promise<void> {
+  try {
+    const existing = await getCachedTrails();
+    await AsyncStorage.setItem(
+      KEYS.unlockedTrails,
+      JSON.stringify(existing.filter(t => t.id !== trailId)),
+    );
+  } catch {}
+}
+
 export async function updateTrailStatusInCache(
   trailId: string,
   status: 'unlocked' | 'completed',

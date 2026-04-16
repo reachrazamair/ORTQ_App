@@ -3,7 +3,7 @@ import { supabase } from './supabase';
 import {
   getCompletionQueue,
   removeFromCompletionQueue,
-  updateTrailStatusInCache,
+  removeTrailFromCache,
 } from './trailCache';
 import { deleteOfflinePack } from './offlineMap';
 
@@ -25,7 +25,7 @@ export async function flushCompletionQueue(): Promise<void> {
         v_p_user_lon: entry.userLon,
       });
       await removeFromCompletionQueue(entry.trailId);
-      await updateTrailStatusInCache(entry.trailId, 'completed');
+      await removeTrailFromCache(entry.trailId);
       deleteOfflinePack(entry.trailId).catch(() => {});
     } catch {
       // Still offline or RPC error — leave in queue for next attempt
