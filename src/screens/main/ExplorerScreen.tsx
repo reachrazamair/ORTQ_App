@@ -1078,9 +1078,14 @@ export default function ExplorerScreen() {
       console.warn('[ExplorerScreen] offline — falling back to cache');
       if (pageNum === 0) {
         const cached = await getCachedTrails();
-        const unlocked = cached.filter(t => t.user_trail_status !== 'completed');
-        if (unlocked.length > 0) {
-          const asTrails: Trail[] = unlocked.map(t => ({
+        // Respect the active status filter; default (null) matches RPC which excludes completed
+        const filtered = f.status === 'completed'
+          ? cached.filter(t => t.user_trail_status === 'completed')
+          : f.status === 'unlocked'
+            ? cached.filter(t => t.user_trail_status === 'unlocked')
+            : cached.filter(t => t.user_trail_status === 'unlocked'); // default: unlocked only
+        if (filtered.length > 0) {
+          const asTrails: Trail[] = filtered.map(t => ({
             id: t.id,
             name: t.name,
             city: t.city,
@@ -1105,6 +1110,9 @@ export default function ExplorerScreen() {
           }));
           setTrails(asTrails);
           setTotalCount(asTrails.length);
+        } else {
+          setTrails([]);
+          setTotalCount(0);
         }
       }
     } finally {
