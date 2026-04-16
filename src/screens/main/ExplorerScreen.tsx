@@ -940,13 +940,14 @@ export default function ExplorerScreen() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedTrail, setSelectedTrail] = useState<Trail | null>(null);
   const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
+  const [localFilteredCount, setLocalFilteredCount] = useState(0);
 
   const navigation = useNavigation<any>();
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
   const profileCoordsRef = useRef<{ lat: number; lon: number } | null>(null);
 
-  const hasMore = trails.length < totalCount && !loadingTrails;
+  const hasMore = trails.length < (totalCount - localFilteredCount) && !loadingTrails;
 
   // --- Init: get user + variants ---
   useEffect(() => {
@@ -1012,15 +1013,25 @@ export default function ExplorerScreen() {
         Geolocation.getCurrentPosition(
           pos => {
             if (cancelled) return;
-            setUserLat(pos.coords.latitude);
-            setUserLon(pos.coords.longitude);
-            setHasLocation(true);
+            const newLat = pos.coords.latitude;
+            const newLon = pos.coords.longitude;
+
+            // Only update if location changed significantly (> approx 5m) to prevent drift loops
+            const dist = userLat !== null && userLon !== null
+              ? haversineDistance(userLat, userLon, newLat, newLon)
+              : 999;
+
+            if (dist > 5) {
+              setUserLat(newLat);
+              setUserLon(newLon);
+              setHasLocation(true);
+            }
             setLoadingLocation(false);
           },
           () => {
             if (cancelled) return;
             const fallback = profileCoordsRef.current;
-            if (fallback) {
+            if (fallback && (userLat === null || userLon === null)) {
               setUserLat(fallback.lat);
               setUserLon(fallback.lon);
               setHasLocation(true);
@@ -1058,6 +1069,7 @@ export default function ExplorerScreen() {
 
       const result = data as { totalCount: number; trails: Trail[] };
       let apiTrails = result.trails ?? [];
+      const countBeforeFilter = apiTrails.length;
 
       // Filter out trails completed offline but not yet synced to Supabase.
       // Without this, the trail reappears in Explorer when connectivity returns
@@ -1067,13 +1079,18 @@ export default function ExplorerScreen() {
         cached.filter(c => c.user_trail_status === 'completed').map(c => c.id),
       );
       if (locallyCompleted.size > 0) {
-        apiTrails = apiTrails.filter(t => !locallyCompleted.has(t.id));
+        apiTrails = apiTrails.filter(t => !(locallyCompleted.has(t.id) && t.user_trail_status !== 'completed'));
       }
+
+      const countAfterFilter = apiTrails.length;
+      const removedThisPage = countBeforeFilter - countAfterFilter;
 
       if (pageNum === 0) {
         setTrails(apiTrails);
+        setLocalFilteredCount(removedThisPage);
       } else {
         setTrails(prev => [...prev, ...apiTrails]);
+        setLocalFilteredCount(prev => prev + removedThisPage);
       }
       setTotalCount(result.totalCount ?? 0);
       setPage(pageNum);
@@ -1423,7 +1440,7 @@ const styles = StyleSheet.create({
   },
   cardImageWrap: { height: 180, position: 'relative' },
   cardImage: { width: '100%', height: '100%' },
-  cardImageOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)' },
+  cardImageOverlay: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.5)' },
   lockedImageBanner: {
     position: 'absolute',
     bottom: 10,
@@ -1485,7 +1502,7 @@ const styles = StyleSheet.create({
   detailImageWrap: { height: 200, position: 'relative' },
   detailImage: { width: '100%', height: '100%', borderTopLeftRadius: 24, borderTopRightRadius: 24 },
   detailImageOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.5)',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,

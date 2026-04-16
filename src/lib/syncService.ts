@@ -18,17 +18,24 @@ export async function flushCompletionQueue(): Promise<void> {
   const queue = await getCompletionQueue();
   for (const entry of queue) {
     try {
-      await supabase.rpc('complete_trail', {
+      const { error } = await supabase.rpc('complete_trail', {
         v_p_user_id: entry.userId,
         v_p_trail_id: entry.trailId,
         v_p_user_lat: entry.userLat,
         v_p_user_lon: entry.userLon,
       });
+
+      if (error) {
+        console.warn(`[syncService] RPC error for trail ${entry.trailId}:`, error.message);
+        continue; // Keep in queue for next attempt
+      }
+
       await removeFromCompletionQueue(entry.trailId);
       await removeTrailFromCache(entry.trailId);
       deleteOfflinePack(entry.trailId).catch(() => {});
-    } catch {
-      // Still offline or RPC error — leave in queue for next attempt
+    } catch (err) {
+      console.warn(`[syncService] Network error for trail ${entry.trailId}:`, err);
+      // Still offline — leave in queue for next attempt
     }
   }
 }
@@ -40,10 +47,14 @@ export async function flushCompletionQueue(): Promise<void> {
 export function startNetworkSync(): () => void {
   let wasConnected: boolean | null = null;
 
+  // 1. Initial check on startup
+  flushCompletionQueue().catch(() => {});
+
+  // 2. Continuous listener for network transitions
   const unsubscribe = NetInfo.addEventListener(state => {
     const isConnected = state.isConnected ?? false;
 
-    // Only trigger on the offline → online transition
+    // Trigger on restoration of connectivity
     if (wasConnected === false && isConnected) {
       flushCompletionQueue().catch(() => {});
     }

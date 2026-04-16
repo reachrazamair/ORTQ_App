@@ -269,37 +269,43 @@ export default function MapScreen() {
   // --- Load user + trail markers ---
   useEffect(() => {
     const init = async () => {
-      // getSession reads from local storage — works offline unlike getUser()
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData.session?.user) return;
-      const uid = sessionData.session.user.id;
-      setUserId(uid);
+      try {
+        // getSession reads from local storage — works offline unlike getUser()
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (!sessionData.session?.user) return;
+        const uid = sessionData.session.user.id;
+        setUserId(uid);
 
-      const { data, error } = await supabase.rpc('get_user_trails_markers', {
-        p_user_id: uid,
-      });
-
-      if (!error && data) {
-        const markers = data as TrailMarker[];
-        setTrails(markers);
-        // Save to cache for offline use
-        saveAllTrailsToCache(markers).catch(() => {});
-        // Ensure offline map packs exist for all unlocked trails
-        markers.forEach(t => {
-          if (t.user_trail_status === 'unlocked' && t.hidden_point) {
-            downloadOfflinePack(t.id, t.hidden_point).catch(() => {});
-          }
+        const { data, error } = await supabase.rpc('get_user_trails_markers', {
+          p_user_id: uid,
         });
-      } else {
-        // Offline — load from cache
+
+        if (!error && data) {
+          const markers = data as TrailMarker[];
+          setTrails(markers);
+          // Save only unlocked/completed trails to cache for offline use
+          const cacheable = markers.filter(m => m.user_trail_status !== 'locked');
+          saveAllTrailsToCache(cacheable as any).catch(() => {});
+          // Ensure offline map packs exist for all unlocked trails
+          markers.forEach(t => {
+            if (t.user_trail_status === 'unlocked' && t.hidden_point) {
+              downloadOfflinePack(t.id, t.hidden_point).catch(() => {});
+            }
+          });
+        } else {
+          // Soft error (status code) — fallback to cache
+          const cached = await getCachedTrails();
+          if (cached.length > 0) setTrails(cached as TrailMarker[]);
+        }
+      } catch (err) {
+        // Hard error (Network/Timeout) — fallback to cache
         const cached = await getCachedTrails();
         if (cached.length > 0) setTrails(cached as TrailMarker[]);
+      } finally {
+        setLoading(false);
+        // Flush any queued completions now that we may have connectivity
+        flushCompletionQueue().catch(() => {});
       }
-
-      setLoading(false);
-
-      // Flush any queued completions now that we may have connectivity
-      flushCompletionQueue().catch(() => {});
     };
     init();
   }, []);
@@ -400,16 +406,22 @@ export default function MapScreen() {
     updateTrailStatusInCache(trail.id, 'completed').catch(() => {});
 
     try {
-      await supabase.rpc('complete_trail', {
+      const { error } = await supabase.rpc('complete_trail', {
         v_p_user_id: userId,
         v_p_trail_id: trail.id,
         v_p_user_lat: coords.latitude,
         v_p_user_lon: coords.longitude,
       });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
       // Success — clean up offline pack
       deleteOfflinePack(trail.id).catch(() => {});
-    } catch {
-      // Offline — queue for later sync
+    } catch (err) {
+      console.warn('[MapScreen] Sync failed, queuing offline:', err);
+      // Backend error or Network error — queue for later sync
       await addToCompletionQueue({
         trailId: trail.id,
         userId,
