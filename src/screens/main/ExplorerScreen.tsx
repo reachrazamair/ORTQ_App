@@ -939,6 +939,7 @@ export default function ExplorerScreen() {
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedTrail, setSelectedTrail] = useState<Trail | null>(null);
+  const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
 
   const navigation = useNavigation<any>();
   const filtersRef = useRef(filters);
@@ -949,15 +950,16 @@ export default function ExplorerScreen() {
   // --- Init: get user + variants ---
   useEffect(() => {
     const init = async () => {
-      const [{ data: authData }, variantData] = await Promise.all([
-        supabase.auth.getUser(),
-        supabase.rpc('get_all_variants_about_trails'),
+      const [sessionResult, variantData] = await Promise.all([
+        supabase.auth.getSession(),
+        supabase.rpc('get_all_variants_about_trails').catch(() => ({ data: null, error: null })),
       ]);
 
-      if (authData.user) {
-        setUserId(authData.user.id);
+      const user = sessionResult.data?.session?.user ?? null;
+      if (user) {
+        setUserId(user.id);
         try {
-          const profile = await getProfile(authData.user.id);
+          const profile = await getProfile(user.id);
           if (profile) {
             setUserKeys(profile.keys ?? 0);
             if (profile.latitude != null && profile.longitude != null) {
@@ -969,7 +971,7 @@ export default function ExplorerScreen() {
 
         try {
           const { data: questData } = await supabase.rpc('get_active_quests_and_check_user', {
-            input_user_id: authData.user.id,
+            input_user_id: user.id,
           });
           if (questData) {
             setIsUserParticipant(questData.isUserParticipant ?? false);
@@ -1091,6 +1093,7 @@ export default function ExplorerScreen() {
       }
     } finally {
       setLoadingTrails(false);
+      setHasAttemptedLoad(true);
     }
   }, []);
 
@@ -1245,7 +1248,7 @@ export default function ExplorerScreen() {
         </View>
       )}
 
-      {hasLocation && !isLoading && trails.length === 0 && (
+      {hasLocation && !isLoading && hasAttemptedLoad && trails.length === 0 && (
         <View style={styles.emptyState}>
           <Icon name="sad-outline" size={48} color="#9AA0A6" />
           <Text style={styles.emptyTitle}>No trails found</Text>
