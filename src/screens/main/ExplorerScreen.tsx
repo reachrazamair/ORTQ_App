@@ -1062,7 +1062,7 @@ export default function ExplorerScreen() {
       setTotalCount(result.totalCount ?? 0);
       setPage(pageNum);
     } catch (err) {
-      console.error('[ExplorerScreen] loadPage failed — loading from cache:', err);
+      console.warn('[ExplorerScreen] offline — falling back to cache');
       if (pageNum === 0) {
         const cached = await getCachedTrails();
         const unlocked = cached.filter(t => t.user_trail_status !== 'completed');
