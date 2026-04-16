@@ -1157,7 +1157,7 @@ export default function ExplorerScreen() {
               setSelectedTrail(prev =>
                 prev?.id === trail.id ? { ...prev, user_trail_status: 'unlocked', hidden_point: data } : prev,
               );
-              Alert.alert('Trail Unlocked!', `${remaining} key${remaining !== 1 ? 's' : ''} remaining.`);
+              Alert.alert('Trail Unlocked!', `You have successfully unlocked this trail.`);
 
               // Download offline map tiles and cache full trail data for offline Explore
               if (data?.latitude && data?.longitude) {
