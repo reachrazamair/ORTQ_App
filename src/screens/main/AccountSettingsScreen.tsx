@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   ScrollView,
   StatusBar,
@@ -10,22 +11,18 @@ import {
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
+import { supabase } from '../../lib/supabase';
 import { ProfileStackParamList } from '../../navigation/ProfileStack';
 
 type Props = {
   navigation: NativeStackNavigationProp<ProfileStackParamList, 'AccountSettings'>;
 };
 
-function SettingRow({
-  label,
-  right,
-}: {
-  label: string;
-  right: React.ReactNode;
-}) {
+function SettingRow({ label, right }: { label: string; right: React.ReactNode }) {
   return (
     <View style={styles.settingRow}>
       <Text style={styles.settingLabel}>{label}</Text>
@@ -39,18 +36,21 @@ function ActionRow({
   buttonLabel,
   onPress,
   danger,
+  disabled,
 }: {
   label: string;
   buttonLabel: string;
   onPress: () => void;
   danger?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <View style={styles.settingRow}>
       <Text style={styles.settingLabel}>{label}</Text>
       <TouchableOpacity
-        style={[styles.actionBtn, danger && styles.actionBtnDanger]}
+        style={[styles.actionBtn, danger && styles.actionBtnDanger, disabled && styles.actionBtnDisabled]}
         onPress={onPress}
+        disabled={disabled}
       >
         <Text style={[styles.actionBtnText, danger && styles.actionBtnTextDanger]}>
           {buttonLabel}
@@ -61,6 +61,95 @@ function ActionRow({
 }
 
 export default function AccountSettingsScreen({ navigation }: Props) {
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [isActiveParticipant, setIsActiveParticipant] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      const load = async () => {
+        setLoading(true);
+        const { data: sessionData } = await supabase.auth.getSession();
+        const session = sessionData.session;
+        if (!session) { setLoading(false); return; }
+
+        const userId = session.user.id;
+        setEmailVerified(!!session.user.email_confirmed_at);
+
+        try {
+          const now = new Date().toISOString();
+          const { data: activeQuests } = await supabase
+            .from('quests')
+            .select('id')
+            .lte('start_date', now)
+            .gte('end_date', now);
+
+          if (activeQuests && activeQuests.length > 0) {
+            const activeIds = activeQuests.map(q => q.id);
+            const { data: participation } = await supabase
+              .from('user_quests')
+              .select('id')
+              .eq('user_id', userId)
+              .in('quest_id', activeIds)
+              .limit(1);
+            setIsActiveParticipant((participation?.length ?? 0) > 0);
+          } else {
+            setIsActiveParticipant(false);
+          }
+        } catch {
+          setIsActiveParticipant(false);
+        }
+
+        setLoading(false);
+      };
+      load();
+    }, []),
+  );
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'Your account and all associated data will be permanently deleted in 25 days. This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await supabase.rpc('request_account_deletion');
+              await supabase.auth.signOut();
+            } catch {
+              Alert.alert('Error', 'Could not process your request. Please try again later.');
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+        <View style={styles.topBar}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <Ionicons name="chevron-back" size={24} color={Colors.blueGrey} />
+          </TouchableOpacity>
+          <Text style={styles.topBarTitle}>Account Settings</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={Colors.orange} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -81,18 +170,30 @@ export default function AccountSettingsScreen({ navigation }: Props) {
           <SettingRow
             label="Email Verification"
             right={
-              <View style={styles.verifiedBadge}>
-                <Text style={styles.verifiedText}>Verified</Text>
-              </View>
+              emailVerified ? (
+                <View style={styles.verifiedBadge}>
+                  <Text style={styles.verifiedText}>Verified</Text>
+                </View>
+              ) : (
+                <View style={styles.unverifiedBadge}>
+                  <Text style={styles.unverifiedText}>Unverified</Text>
+                </View>
+              )
             }
           />
           <View style={styles.rowDivider} />
           <SettingRow
             label="Quest Participation"
             right={
-              <View style={styles.inactiveBadge}>
-                <Text style={styles.inactiveText}>Inactive</Text>
-              </View>
+              isActiveParticipant ? (
+                <View style={styles.activeBadge}>
+                  <Text style={styles.activeText}>Active</Text>
+                </View>
+              ) : (
+                <View style={styles.inactiveBadge}>
+                  <Text style={styles.inactiveText}>Inactive</Text>
+                </View>
+              )
             }
           />
           <View style={styles.rowDivider} />
@@ -104,18 +205,10 @@ export default function AccountSettingsScreen({ navigation }: Props) {
           <View style={styles.rowDivider} />
           <ActionRow
             label="Delete Account"
-            buttonLabel="Delete"
+            buttonLabel={deleting ? 'Processing…' : 'Delete'}
             danger
-            onPress={() =>
-              Alert.alert(
-                'Delete Account',
-                'Your account will be permanently deleted in 25 days.',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'Confirm', style: 'destructive' },
-                ],
-              )
-            }
+            disabled={deleting}
+            onPress={handleDeleteAccount}
           />
         </View>
       </ScrollView>
@@ -127,6 +220,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#fff' },
   container: { flex: 1, backgroundColor: '#F5F5F5' },
   scrollContent: { padding: 20, paddingBottom: 40 },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
   topBar: {
     flexDirection: 'row',
@@ -168,6 +262,22 @@ const styles = StyleSheet.create({
   },
   verifiedText: { fontFamily: Fonts.firaSansBold, fontSize: 12, color: '#fff' },
 
+  unverifiedBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  unverifiedText: { fontFamily: Fonts.firaSansBold, fontSize: 12, color: '#92400E' },
+
+  activeBadge: {
+    backgroundColor: Colors.success,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  activeText: { fontFamily: Fonts.firaSansBold, fontSize: 12, color: '#fff' },
+
   inactiveBadge: {
     backgroundColor: '#E9ECEF',
     paddingHorizontal: 10,
@@ -184,6 +294,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   actionBtnDanger: { borderColor: '#fca5a5' },
+  actionBtnDisabled: { opacity: 0.5 },
   actionBtnText: { fontFamily: Fonts.firaSansBold, fontSize: 13, color: Colors.blueGrey },
   actionBtnTextDanger: { color: Colors.error },
 });
