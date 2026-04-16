@@ -952,7 +952,10 @@ export default function ExplorerScreen() {
     const init = async () => {
       const [sessionResult, variantData] = await Promise.all([
         supabase.auth.getSession(),
-        supabase.rpc('get_all_variants_about_trails').catch(() => ({ data: null, error: null })),
+        (async () => {
+          try { return await supabase.rpc('get_all_variants_about_trails'); }
+          catch { return { data: null, error: null }; }
+        })(),
       ]);
 
       const user = sessionResult.data?.session?.user ?? null;
