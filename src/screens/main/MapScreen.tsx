@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  Clipboard,
   Modal,
   Pressable,
   ScrollView,
@@ -10,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import ConfettiCannon from 'react-native-confetti-cannon';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Mapbox from '@rnmapbox/maps';
 import Geolocation from '@react-native-community/geolocation';
@@ -25,9 +27,8 @@ import {
   saveAllTrailsToCache,
   updateTrailStatusInCache,
   addToCompletionQueue,
-  removeFromCompletionQueue,
-  getCompletionQueue,
 } from '../../lib/trailCache';
+import { flushCompletionQueue } from '../../lib/syncService';
 
 Mapbox.setAccessToken(Config.MAPBOX_TOKEN ?? '');
 
@@ -106,6 +107,17 @@ function TrailCompletedModal({
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View style={styles.completedOverlay}>
+        {visible && (
+          <ConfettiCannon
+            count={120}
+            origin={{ x: -10, y: 0 }}
+            autoStart
+            fadeOut
+            explosionSpeed={350}
+            fallSpeed={3000}
+            colors={['#FFD700', '#FF4500', '#00BFFF', '#32CD32', '#FF69B4']}
+          />
+        )}
         <View style={styles.completedSheet}>
           <View style={styles.completedIconWrap}>
             <Icon name="checkmark-circle" size={56} color="#22C55E" />
@@ -154,6 +166,8 @@ function InfoSheet({
   userCoords: Coords | null;
   onClose: () => void;
 }) {
+  const [coordsCopied, setCoordsCopied] = useState(false);
+
   if (!trail) return null;
   const hp = trail.hidden_point;
 
@@ -165,6 +179,13 @@ function InfoSheet({
   const formatDistance = (m: number) => {
     const miles = metersToMiles(m);
     return miles >= 1 ? `${miles.toFixed(1)} mi` : `${m.toFixed(0)} m`;
+  };
+
+  const handleCopyCoords = () => {
+    if (!hp) return;
+    Clipboard.setString(`${hp.latitude.toFixed(6)}, ${hp.longitude.toFixed(6)}`);
+    setCoordsCopied(true);
+    setTimeout(() => setCoordsCopied(false), 2000);
   };
 
   return (
@@ -193,11 +214,20 @@ function InfoSheet({
       )}
 
       {hp && (
-        <View style={styles.infoRow}>
-          <Icon name="globe-outline" size={15} color={Colors.orange} />
-          <Text style={styles.infoText}>
-            {hp.latitude.toFixed(4)}, {hp.longitude.toFixed(4)}
-          </Text>
+        <View style={[styles.infoRow, { justifyContent: 'space-between' }]}>
+          <View style={styles.infoRow}>
+            <Icon name="globe-outline" size={15} color={Colors.orange} />
+            <Text selectable style={styles.infoText}>
+              {hp.latitude.toFixed(4)}, {hp.longitude.toFixed(4)}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={handleCopyCoords} style={styles.copyBtn}>
+            <Icon
+              name={coordsCopied ? 'checkmark-outline' : 'copy-outline'}
+              size={16}
+              color={coordsCopied ? '#22C55E' : Colors.blueGrey}
+            />
+          </TouchableOpacity>
         </View>
       )}
 
@@ -269,16 +299,29 @@ export default function MapScreen() {
       setLoading(false);
 
       // Flush any queued completions now that we may have connectivity
-      flushCompletionQueue(uid);
+      flushCompletionQueue().catch(() => {});
     };
     init();
   }, []);
 
-  // --- Flush queue on focus (user may have regained connectivity) ---
+  // --- Flush queue + sync completed statuses from cache on focus ---
   useFocusEffect(
     useCallback(() => {
-      if (userId) flushCompletionQueue(userId);
-    }, [userId]),
+      flushCompletionQueue().catch(() => {});
+      // Reflect any completions that happened via background sync
+      getCachedTrails().then(cached => {
+        if (cached.length === 0) return;
+        setTrails(prev =>
+          prev.map(t => {
+            const c = cached.find(ct => ct.id === t.id);
+            if (c?.user_trail_status === 'completed' && t.user_trail_status !== 'completed') {
+              return { ...t, user_trail_status: 'completed' };
+            }
+            return t;
+          }),
+        );
+      }).catch(() => {});
+    }, []),
   );
 
   // --- Watch GPS ---
@@ -343,29 +386,6 @@ export default function MapScreen() {
       });
     }
   }, [focusedTrailId, trails]);
-
-  // --- Flush queued offline completions ---
-  const flushCompletionQueue = async (uid: string) => {
-    const queue = await getCompletionQueue();
-    for (const entry of queue) {
-      try {
-        await supabase.rpc('complete_trail', {
-          v_p_user_id: entry.userId,
-          v_p_trail_id: entry.trailId,
-          v_p_user_lat: entry.userLat,
-          v_p_user_lon: entry.userLon,
-        });
-        await removeFromCompletionQueue(entry.trailId);
-        await updateTrailStatusInCache(entry.trailId, 'completed');
-        deleteOfflinePack(entry.trailId).catch(() => {});
-        setTrails(prev =>
-          prev.map(t => t.id === entry.trailId ? { ...t, user_trail_status: 'completed' } : t),
-        );
-      } catch {
-        // Still offline — leave in queue
-      }
-    }
-  };
 
   // --- Complete trail ---
   const handleCompleteTrail = async (trail: TrailMarker, coords: Coords) => {
@@ -646,6 +666,9 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.firaSansRegular,
     fontSize: 13,
     color: Colors.blueGrey,
+  },
+  copyBtn: {
+    padding: 4,
   },
 
   // Completed modal
