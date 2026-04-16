@@ -1054,10 +1054,23 @@ export default function ExplorerScreen() {
       if (error) throw error;
 
       const result = data as { totalCount: number; trails: Trail[] };
+      let apiTrails = result.trails ?? [];
+
+      // Filter out trails completed offline but not yet synced to Supabase.
+      // Without this, the trail reappears in Explorer when connectivity returns
+      // because Supabase still has it as 'unlocked' until the queue flushes.
+      const cached = await getCachedTrails();
+      const locallyCompleted = new Set(
+        cached.filter(c => c.user_trail_status === 'completed').map(c => c.id),
+      );
+      if (locallyCompleted.size > 0) {
+        apiTrails = apiTrails.filter(t => !locallyCompleted.has(t.id));
+      }
+
       if (pageNum === 0) {
-        setTrails(result.trails ?? []);
+        setTrails(apiTrails);
       } else {
-        setTrails(prev => [...prev, ...(result.trails ?? [])]);
+        setTrails(prev => [...prev, ...apiTrails]);
       }
       setTotalCount(result.totalCount ?? 0);
       setPage(pageNum);
