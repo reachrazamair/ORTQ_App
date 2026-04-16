@@ -24,6 +24,17 @@ export type CachedTrail = {
     keys_awarded: number;
     points_awarded: number;
   } | null;
+  // Full trail card fields — populated on unlock from Explore
+  image_url?: string | null;
+  trail_types?: string[];
+  vehicle_types?: string[];
+  overview?: string;
+  permit_requierd?: string | null;
+  trail_shape?: string;
+  typically_open?: string;
+  navigation_details?: string | null;
+  keys_to_unlock?: number;
+  distance_meters?: number | null;
 };
 
 export type QueuedCompletion = {

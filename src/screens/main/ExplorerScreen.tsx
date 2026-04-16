@@ -27,7 +27,7 @@ import { Fonts } from '../../theme/fonts';
 import { supabase } from '../../lib/supabase';
 import { getProfile } from '../../lib/profile';
 import { downloadOfflinePack, deleteOfflinePack } from '../../lib/offlineMap';
-import { saveTrailToCache } from '../../lib/trailCache';
+import { saveTrailToCache, getCachedTrails } from '../../lib/trailCache';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -121,6 +121,16 @@ function metersToMiles(m: number) {
 
 function milesToMeters(miles: number) {
   return Math.round(miles * 1609.344);
+}
+
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 function getTrailImageUrl(imageUrl: string | null): string {
@@ -1047,7 +1057,38 @@ export default function ExplorerScreen() {
       setTotalCount(result.totalCount ?? 0);
       setPage(pageNum);
     } catch (err) {
-      console.error('[ExplorerScreen] loadPage failed:', err);
+      console.error('[ExplorerScreen] loadPage failed — loading from cache:', err);
+      if (pageNum === 0) {
+        const cached = await getCachedTrails();
+        const unlocked = cached.filter(t => t.user_trail_status !== 'completed');
+        if (unlocked.length > 0) {
+          const asTrails: Trail[] = unlocked.map(t => ({
+            id: t.id,
+            name: t.name,
+            city: t.city,
+            state: t.state,
+            difficulty: t.difficulty,
+            distance_tolerance: t.distance_tolerance,
+            user_trail_status: t.user_trail_status,
+            hidden_point: t.hidden_point,
+            image_url: t.image_url ?? null,
+            trail_types: t.trail_types ?? [],
+            vehicle_types: t.vehicle_types ?? [],
+            overview: t.overview ?? '',
+            permit_requierd: t.permit_requierd ?? null,
+            trail_shape: t.trail_shape ?? '',
+            typically_open: t.typically_open ?? '',
+            navigation_details: t.navigation_details ?? null,
+            keys_to_unlock: t.keys_to_unlock ?? 0,
+            distance_meters:
+              t.hidden_point && lat !== null && lon !== null
+                ? haversineDistance(lat, lon, t.hidden_point.latitude, t.hidden_point.longitude)
+                : t.distance_meters ?? null,
+          }));
+          setTrails(asTrails);
+          setTotalCount(asTrails.length);
+        }
+      }
     } finally {
       setLoadingTrails(false);
     }
@@ -1112,7 +1153,7 @@ export default function ExplorerScreen() {
               );
               Alert.alert('Trail Unlocked!', `${remaining} key${remaining !== 1 ? 's' : ''} remaining.`);
 
-              // Download offline map tiles and cache trail data
+              // Download offline map tiles and cache full trail data for offline Explore
               if (data?.latitude && data?.longitude) {
                 downloadOfflinePack(trail.id, data).catch(() => {});
               }
@@ -1125,6 +1166,16 @@ export default function ExplorerScreen() {
                 distance_tolerance: trail.distance_tolerance,
                 user_trail_status: 'unlocked',
                 hidden_point: data ?? null,
+                image_url: trail.image_url,
+                trail_types: trail.trail_types,
+                vehicle_types: trail.vehicle_types,
+                overview: trail.overview,
+                permit_requierd: trail.permit_requierd,
+                trail_shape: trail.trail_shape,
+                typically_open: trail.typically_open,
+                navigation_details: trail.navigation_details,
+                keys_to_unlock: trail.keys_to_unlock,
+                distance_meters: trail.distance_meters,
               }).catch(() => {});
             } catch (err) {
               Alert.alert('Error', err instanceof Error ? err.message : 'Failed to unlock trail.');
