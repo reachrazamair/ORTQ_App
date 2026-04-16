@@ -944,6 +944,7 @@ export default function ExplorerScreen() {
   const navigation = useNavigation<any>();
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
+  const profileCoordsRef = useRef<{ lat: number; lon: number } | null>(null);
 
   const hasMore = trails.length < totalCount && !loadingTrails;
 
@@ -968,6 +969,7 @@ export default function ExplorerScreen() {
             if (profile.latitude != null && profile.longitude != null) {
               setProfileLat(profile.latitude);
               setProfileLon(profile.longitude);
+              profileCoordsRef.current = { lat: profile.latitude, lon: profile.longitude };
             }
           }
         } catch { /* non-blocking */ }
@@ -1017,9 +1019,10 @@ export default function ExplorerScreen() {
           },
           () => {
             if (cancelled) return;
-            if (profileLat != null && profileLon != null) {
-              setUserLat(profileLat);
-              setUserLon(profileLon);
+            const fallback = profileCoordsRef.current;
+            if (fallback) {
+              setUserLat(fallback.lat);
+              setUserLon(fallback.lon);
               setHasLocation(true);
             }
             setLoadingLocation(false);
@@ -1030,7 +1033,7 @@ export default function ExplorerScreen() {
 
       getLocation();
       return () => { cancelled = true; };
-    }, [profileLat, profileLon]),
+    }, []),
   );
 
   // --- Fetch trails ---
