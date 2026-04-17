@@ -110,7 +110,7 @@ export default function AccountSettingsScreen({ navigation }: Props) {
   const handleDeleteAccount = () => {
     Alert.alert(
       'Delete Account',
-      'Your account and all associated data will be permanently deleted in 25 days. This action cannot be undone.',
+      'Your account and all associated data will be permanently deleted in 30 days. This action cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
