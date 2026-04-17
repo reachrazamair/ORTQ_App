@@ -5,6 +5,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { Colors } from '../theme/colors';
 import { Fonts } from '../theme/fonts';
 import ProfileStack from './ProfileStack';
+import CommunityStack from './CommunityStack';
 import LeaderboardScreen from '../screens/main/LeaderboardScreen';
 import ExplorerScreen from '../screens/main/ExplorerScreen';
 import MapScreen from '../screens/main/MapScreen';
@@ -12,6 +13,7 @@ import MapScreen from '../screens/main/MapScreen';
 export type AppTabParamList = {
   Explorer: undefined;
   Map: { trailId?: string };
+  Community: undefined;
   Leaderboard: undefined;
   Profile: undefined;
 };
@@ -55,6 +57,15 @@ export default function AppNavigator() {
         options={{
           tabBarIcon: ({ color, size }) => (
             <Icon name="map-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Community"
+        component={CommunityStack}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Icon name="people-outline" size={size} color={color} />
           ),
         }}
       />
