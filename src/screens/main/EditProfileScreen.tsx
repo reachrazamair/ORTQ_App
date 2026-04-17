@@ -19,10 +19,14 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import Config from 'react-native-config';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 import { supabase } from '../../lib/supabase';
 import { getProfile, updateProfile } from '../../lib/profile';
+
+const getStorageUrl = (bucket: string, fileName: string) =>
+  `${Config.SUPABASE_URL}/storage/v1/object/public/${bucket}/${fileName}`;
 import CustomInput from '../../components/common/CustomInput';
 import { editProfileSchema, EditProfileInput } from '../../utils/schemas';
 import { ProfileStackParamList } from '../../navigation/ProfileStack';
@@ -202,8 +206,14 @@ export default function EditProfileScreen({ navigation }: Props) {
         setYear(profileData.year ?? '');
         setRigDescription(profileData.rig_description ?? '');
         setAboutMe(profileData.about_me ?? '');
-        setAvatarUri(profileData.profile_image_url ?? null);
-        setBackgroundUri(profileData.background_image_url ?? null);
+        const avatarFile = profileData.profile_image_url;
+        setAvatarUri(avatarFile
+          ? avatarFile.startsWith('http') ? avatarFile : getStorageUrl('user_avatars', avatarFile)
+          : null);
+        const bgFile = profileData.background_image_url;
+        setBackgroundUri(bgFile
+          ? bgFile.startsWith('http') ? bgFile : getStorageUrl('user_backgrounds', bgFile)
+          : null);
 
         if (profileData.state?.id) {
           setStateId(profileData.state.id);
@@ -288,24 +298,31 @@ export default function EditProfileScreen({ navigation }: Props) {
   const uploadImage = async (
     bucket: string,
     uri: string,
-    userId: string,
     pathSuffix: string,
   ): Promise<string | null> => {
     try {
+      const rawExt = uri.split('.').pop()?.split('?')[0]?.split('#')[0] ?? 'jpg';
+      const ext = ['jpg', 'jpeg', 'png', 'webp', 'heic'].includes(rawExt.toLowerCase())
+        ? rawExt.toLowerCase()
+        : 'jpg';
+      const mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+      const fileName = `${Date.now()}-${pathSuffix}.${ext}`;
+
       const response = await fetch(uri);
-      const blob = await response.blob();
-      const ext = uri.split('.').pop() ?? 'jpg';
-      const path = `${userId}/${pathSuffix}.${ext}`;
+      const arrayBuffer = await response.arrayBuffer();
 
       const { error } = await supabase.storage
         .from(bucket)
-        .upload(path, blob, { upsert: true, contentType: `image/${ext}` });
+        .upload(fileName, arrayBuffer, { cacheControl: '3600', upsert: false, contentType: mimeType });
 
-      if (error) return null;
+      if (error) {
+        console.error('[uploadImage]', error.message);
+        return null;
+      }
 
-      const { data } = supabase.storage.from(bucket).getPublicUrl(path);
-      return `${data.publicUrl}?t=${Date.now()}`;
-    } catch {
+      return fileName;
+    } catch (e) {
+      console.error('[uploadImage] exception:', e);
       return null;
     }
   };
@@ -359,15 +376,25 @@ export default function EditProfileScreen({ navigation }: Props) {
     if (!userId) { setSaving(false); return; }
 
     let avatarUrl: string | undefined;
-    if (avatarUri && avatarUri.startsWith('file')) {
-      const uploaded = await uploadImage('user_avatars', avatarUri, userId, 'avatar');
-      if (uploaded) avatarUrl = uploaded;
+    if (avatarUri && !avatarUri.startsWith('http')) {
+      const fileName = await uploadImage('user_avatars', avatarUri, 'avatar');
+      if (fileName) {
+        avatarUrl = fileName;
+        setAvatarUri(getStorageUrl('user_avatars', fileName));
+      } else {
+        Alert.alert('Upload Failed', 'Could not upload profile photo. Other changes will still be saved.');
+      }
     }
 
-    let backgroundUrl: string | null | undefined;
-    if (backgroundUri && backgroundUri.startsWith('file')) {
-      const uploaded = await uploadImage('user_backgrounds', backgroundUri, userId, 'background');
-      if (uploaded) backgroundUrl = uploaded;
+    let backgroundUrl: string | undefined;
+    if (backgroundUri && !backgroundUri.startsWith('http')) {
+      const fileName = await uploadImage('user_backgrounds', backgroundUri, 'background');
+      if (fileName) {
+        backgroundUrl = fileName;
+        setBackgroundUri(getStorageUrl('user_backgrounds', fileName));
+      } else {
+        Alert.alert('Upload Failed', 'Could not upload cover photo. Other changes will still be saved.');
+      }
     }
 
     try {
