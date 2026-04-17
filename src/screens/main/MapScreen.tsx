@@ -27,6 +27,8 @@ import {
   saveAllTrailsToCache,
   updateTrailStatusInCache,
   addToCompletionQueue,
+  getCompletionQueue,
+  removeTrailFromCache,
 } from '../../lib/trailCache';
 import { flushCompletionQueue } from '../../lib/syncService';
 
@@ -269,43 +271,57 @@ export default function MapScreen() {
   // --- Load user + trail markers ---
   useEffect(() => {
     const init = async () => {
-      try {
-        // getSession reads from local storage — works offline unlike getUser()
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (!sessionData.session?.user) return;
-        const uid = sessionData.session.user.id;
-        setUserId(uid);
+      // getSession reads from local storage — works offline unlike getUser()
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session?.user) return;
+      const uid = sessionData.session.user.id;
+      setUserId(uid);
 
-        const { data, error } = await supabase.rpc('get_user_trails_markers', {
-          p_user_id: uid,
+      // Pre-populate completedIds from the queue so GPS never re-triggers
+      // a trail the user already completed offline (even before Supabase syncs)
+      const queue = await getCompletionQueue();
+      queue.forEach(q => completedIds.current.add(q.trailId));
+
+      const { data, error } = await supabase.rpc('get_user_trails_markers', {
+        p_user_id: uid,
+      });
+
+      if (!error && data) {
+        const markers = (data as TrailMarker[]).map(t => ({
+          ...t,
+          // If trail is still in queue (flush failed), keep it as completed
+          user_trail_status: completedIds.current.has(t.id)
+            ? ('completed' as TrailStatus)
+            : t.user_trail_status,
+        }));
+        // Populate completedIds from all completed trails so GPS never re-triggers them
+        markers.forEach(t => {
+          if (t.user_trail_status === 'completed') completedIds.current.add(t.id);
         });
-
-        if (!error && data) {
-          const markers = data as TrailMarker[];
-          setTrails(markers);
-          // Save only unlocked/completed trails to cache for offline use
-          const cacheable = markers.filter(m => m.user_trail_status !== 'locked');
-          saveAllTrailsToCache(cacheable as any).catch(() => {});
-          // Ensure offline map packs exist for all unlocked trails
-          markers.forEach(t => {
-            if (t.user_trail_status === 'unlocked' && t.hidden_point) {
-              downloadOfflinePack(t.id, t.hidden_point).catch(() => {});
-            }
-          });
-        } else {
-          // Soft error (status code) — fallback to cache
-          const cached = await getCachedTrails();
-          if (cached.length > 0) setTrails(cached as TrailMarker[]);
-        }
-      } catch (err) {
-        // Hard error (Network/Timeout) — fallback to cache
+        setTrails(markers);
+        const cacheable = markers.filter(m => m.user_trail_status !== 'locked');
+        saveAllTrailsToCache(cacheable as any).catch(() => {});
+        markers.forEach(t => {
+          if (t.user_trail_status === 'unlocked' && t.hidden_point) {
+            downloadOfflinePack(t.id, t.hidden_point).catch(() => {});
+          }
+        });
+      } else {
+        // Offline — load from cache
         const cached = await getCachedTrails();
-        if (cached.length > 0) setTrails(cached as TrailMarker[]);
-      } finally {
-        setLoading(false);
-        // Flush any queued completions now that we may have connectivity
-        flushCompletionQueue().catch(() => {});
+        if (cached.length > 0) {
+          // Populate completedIds from cached completed trails
+          cached.forEach(t => {
+            if (t.user_trail_status === 'completed') completedIds.current.add(t.id);
+          });
+          setTrails(cached as TrailMarker[]);
+        }
       }
+
+      setLoading(false);
+
+      // Flush queue in background — does not block map loading
+      flushCompletionQueue().catch(() => {});
     };
     init();
   }, []);
@@ -417,7 +433,8 @@ export default function MapScreen() {
         throw new Error(error.message);
       }
 
-      // Success — clean up offline pack
+      // Success — clean up cache and offline map tiles
+      removeTrailFromCache(trail.id).catch(() => {});
       deleteOfflinePack(trail.id).catch(() => {});
     } catch (err) {
       console.warn('[MapScreen] Sync failed, queuing offline:', err);
