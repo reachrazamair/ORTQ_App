@@ -26,16 +26,22 @@ export async function flushCompletionQueue(): Promise<void> {
       });
 
       if (error) {
-        console.warn(`[syncService] RPC error for trail ${entry.trailId}:`, error.message);
-        continue; // Keep in queue for next attempt
+        // Supabase was reachable but rejected the request — permanent failure
+        // (already completed, quest expired, invalid trail, etc.)
+        // No point retrying — clean up queue and cache
+        console.warn(`[syncService] Permanent RPC error for trail ${entry.trailId}, removing from queue:`, error.message);
+        await removeFromCompletionQueue(entry.trailId);
+        await removeTrailFromCache(entry.trailId);
+        deleteOfflinePack(entry.trailId).catch(() => {});
+        continue;
       }
 
       await removeFromCompletionQueue(entry.trailId);
       await removeTrailFromCache(entry.trailId);
       deleteOfflinePack(entry.trailId).catch(() => {});
     } catch (err) {
-      console.warn(`[syncService] Network error for trail ${entry.trailId}:`, err);
-      // Still offline — leave in queue for next attempt
+      // Network unreachable — transient, leave in queue for next attempt
+      console.warn(`[syncService] Network error for trail ${entry.trailId}, will retry:`, err);
     }
   }
 }
@@ -52,14 +58,14 @@ export function startNetworkSync(): () => void {
 
   // 2. Continuous listener for network transitions
   const unsubscribe = NetInfo.addEventListener(state => {
-    const isConnected = state.isConnected ?? false;
+    const isReachable = state.isConnected === true && state.isInternetReachable !== false;
 
     // Trigger on restoration of connectivity
-    if (wasConnected === false && isConnected) {
+    if (wasConnected === false && isReachable) {
       flushCompletionQueue().catch(() => {});
     }
 
-    wasConnected = isConnected;
+    wasConnected = isReachable;
   });
 
   return unsubscribe;
