@@ -14,11 +14,15 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import Config from 'react-native-config';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 import { supabase } from '../../lib/supabase';
 import { getProfile } from '../../lib/profile';
 import { ProfileStackParamList } from '../../navigation/ProfileStack';
+
+const getStorageUrl = (bucket: string, fileName: string) =>
+  `${Config.SUPABASE_URL}/storage/v1/object/public/${bucket}/${fileName}`;
 
 type Props = {
   navigation: NativeStackNavigationProp<ProfileStackParamList, 'ProfileHome'>;
@@ -86,7 +90,10 @@ export default function ProfileScreen({ navigation }: Props) {
           const profile = await getProfile(user.id);
           if (profile) {
             setDisplayName(profile.alias ?? profile.full_name ?? '');
-            setAvatarUrl(profile.profile_image_url ?? null);
+            const rawAvatar = profile.profile_image_url ?? null;
+            setAvatarUrl(rawAvatar
+              ? rawAvatar.startsWith('http') ? rawAvatar : getStorageUrl('user_avatars', rawAvatar)
+              : null);
             setKeys(profile.keys ?? 0);
           }
         } catch (err) {

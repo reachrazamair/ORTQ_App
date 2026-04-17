@@ -13,9 +13,16 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import Config from 'react-native-config';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 import { supabase } from '../../lib/supabase';
+
+const getAvatarUrl = (raw: string | null): string | null => {
+  if (!raw) return null;
+  if (raw.startsWith('http')) return raw;
+  return `${Config.SUPABASE_URL}/storage/v1/object/public/user_avatars/${raw}`;
+};
 
 // ---------------------------------------------------------------------------
 // Types
@@ -130,7 +137,7 @@ function UserProfileModal({
               <View style={styles.modalAvatarRing}>
                 {user.profile_image_url ? (
                   <Image
-                    source={{ uri: user.profile_image_url }}
+                    source={{ uri: getAvatarUrl(user.profile_image_url)! }}
                     style={styles.modalAvatarImg}
                   />
                 ) : (
@@ -240,7 +247,7 @@ function UserRow({
         {/* Avatar */}
         <View style={styles.avatarWrap}>
           {rankedUser.profile_image_url ? (
-            <Image source={{ uri: rankedUser.profile_image_url }} style={styles.avatarImg} />
+            <Image source={{ uri: getAvatarUrl(rankedUser.profile_image_url)! }} style={styles.avatarImg} />
           ) : (
             <View
               style={[
