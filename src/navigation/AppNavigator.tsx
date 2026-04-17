@@ -73,6 +73,7 @@ export default function AppNavigator() {
         name="Leaderboard"
         component={LeaderboardScreen}
         options={{
+          tabBarLabel: 'Ranks',
           tabBarIcon: ({ color, size }) => (
             <Icon name="trophy-outline" size={size} color={color} />
           ),
