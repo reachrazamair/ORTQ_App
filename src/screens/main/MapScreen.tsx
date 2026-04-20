@@ -31,6 +31,7 @@ import {
   removeTrailFromCache,
 } from '../../lib/trailCache';
 import { flushCompletionQueue } from '../../lib/syncService';
+import { emitTrailCompleted, onTrailUnlocked } from '../../lib/trailEvents';
 
 Mapbox.setAccessToken(Config.MAPBOX_TOKEN ?? '');
 
@@ -268,6 +269,22 @@ export default function MapScreen() {
 
   const completedIds = useRef<Set<string>>(new Set());
 
+  // React instantly when ExplorerScreen unlocks a trail — add marker without reload
+  useEffect(() => {
+    const sub = onTrailUnlocked(({ trailId, hiddenPoint }) => {
+      setTrails(prev => {
+        const existing = prev.find(t => t.id === trailId);
+        if (!existing) return prev;
+        return prev.map(t =>
+          t.id === trailId
+            ? { ...t, user_trail_status: 'unlocked', hidden_point: hiddenPoint as any }
+            : t,
+        );
+      });
+    });
+    return () => sub.remove();
+  }, []);
+
   // --- Load user + trail markers ---
   useEffect(() => {
     const init = async () => {
@@ -421,6 +438,12 @@ export default function MapScreen() {
     setSelectedTrail(null);
     setCompletedTrail(trail);
     updateTrailStatusInCache(trail.id, 'completed').catch(() => {});
+
+    // Notify other screens (e.g. ExplorerScreen) so they update without a reload
+    emitTrailCompleted({
+      trailId: trail.id,
+      keysAwarded: trail.hidden_point?.keys_awarded ?? 0,
+    });
 
     try {
       const { error } = await supabase.rpc('complete_trail', {
