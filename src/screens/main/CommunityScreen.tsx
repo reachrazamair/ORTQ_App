@@ -8,6 +8,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -310,6 +311,8 @@ export default function CommunityScreen() {
   const [loadingDiscover, setLoadingDiscover] = useState(false);
   const [search, setSearch] = useState('');
 
+  const [refreshing, setRefreshing] = useState(false);
+
   // ---------------------------------------------------------------------------
   // Auth
   // ---------------------------------------------------------------------------
@@ -549,6 +552,14 @@ export default function CommunityScreen() {
     if (tab === 'discover') loadAllGroups();
   };
 
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    if (activeTab === 'feed') await loadPosts();
+    if (activeTab === 'groups') await loadMyGroups();
+    if (activeTab === 'discover') await loadAllGroups();
+    setRefreshing(false);
+  }, [activeTab, loadPosts, loadMyGroups, loadAllGroups]);
+
   // ---------------------------------------------------------------------------
   // Discover filtered results
   // ---------------------------------------------------------------------------
@@ -603,6 +614,14 @@ export default function CommunityScreen() {
           )}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={Colors.orange}
+              colors={[Colors.orange]}
+            />
+          }
           ListEmptyComponent={
             loadingPosts ? (
               <View style={styles.centered}>
@@ -635,6 +654,14 @@ export default function CommunityScreen() {
           )}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={Colors.orange}
+              colors={[Colors.orange]}
+            />
+          }
           ListEmptyComponent={
             loadingMyGroups ? (
               <View style={styles.centered}>
@@ -683,6 +710,14 @@ export default function CommunityScreen() {
             )}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                tintColor={Colors.orange}
+                colors={[Colors.orange]}
+              />
+            }
             ListEmptyComponent={
               loadingDiscover ? (
                 <View style={styles.centered}>
