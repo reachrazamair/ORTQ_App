@@ -364,22 +364,23 @@ export default function MapScreen() {
             });
           }
 
-          // Auto-complete check
-          trails.forEach(trail => {
-            if (trail.user_trail_status !== 'unlocked') return;
-            if (!trail.hidden_point) return;
-            if (completedIds.current.has(trail.id)) return;
-
+          // Auto-complete check — only for the trail the user has selected
+          if (
+            selectedTrail &&
+            selectedTrail.user_trail_status === 'unlocked' &&
+            selectedTrail.hidden_point &&
+            !completedIds.current.has(selectedTrail.id)
+          ) {
             const dist = haversineDistance(coords, {
-              latitude: trail.hidden_point.latitude,
-              longitude: trail.hidden_point.longitude,
+              latitude: selectedTrail.hidden_point.latitude,
+              longitude: selectedTrail.hidden_point.longitude,
             });
 
-            if (dist <= trail.distance_tolerance) {
-              completedIds.current.add(trail.id);
-              handleCompleteTrail(trail, coords);
+            if (dist <= selectedTrail.distance_tolerance) {
+              completedIds.current.add(selectedTrail.id);
+              handleCompleteTrail(selectedTrail, coords);
             }
-          });
+          }
         },
         err => console.warn('[MapScreen] GPS error:', err),
         { enableHighAccuracy: true, distanceFilter: 5 },
@@ -391,7 +392,7 @@ export default function MapScreen() {
           watchId.current = null;
         }
       };
-    }, [trails, isFollowing]),
+    }, [trails, isFollowing, selectedTrail]),
   );
 
   // --- Center on focused trail from Explorer ---
