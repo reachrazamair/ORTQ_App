@@ -5,6 +5,7 @@ import {
   Image,
   Modal,
   Pressable,
+  RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -328,6 +329,7 @@ export default function LeaderboardScreen() {
   const [regions, setRegions] = useState<Region[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Fetch regions + current user once on mount, default to user's own region
   useEffect(() => {
@@ -356,20 +358,27 @@ export default function LeaderboardScreen() {
   }, []);
 
   // Fetch leaderboard whenever region changes
+  const loadLeaderboard = useCallback(async () => {
+    setIsLoading(true);
+    const regionId = selectedRegion === 'all' ? null : selectedRegion;
+    const { data, error } = await supabase.rpc('get_top_quests_by_region', {
+      input_region_id: regionId,
+    });
+    if (!error) setUsers(data ?? []);
+    setIsLoading(false);
+  }, [selectedRegion]);
+
   useFocusEffect(
     useCallback(() => {
-      const load = async () => {
-        setIsLoading(true);
-        const regionId = selectedRegion === 'all' ? null : selectedRegion;
-        const { data, error } = await supabase.rpc('get_top_quests_by_region', {
-          input_region_id: regionId,
-        });
-        if (!error) setUsers(data ?? []);
-        setIsLoading(false);
-      };
-      load();
-    }, [selectedRegion]),
+      loadLeaderboard();
+    }, [loadLeaderboard]),
   );
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadLeaderboard();
+    setRefreshing(false);
+  }, [loadLeaderboard]);
 
   // Tie-aware position calculation (mirrors web logic)
   const usersWithPosition = useMemo<RankedUser[]>(() => {
@@ -395,6 +404,14 @@ export default function LeaderboardScreen() {
         style={styles.container}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={Colors.orange}
+            colors={[Colors.orange]}
+          />
+        }
       >
         {/* Header */}
         <View style={styles.header}>
