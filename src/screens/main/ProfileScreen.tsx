@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -76,54 +77,61 @@ export default function ProfileScreen({ navigation }: Props) {
   const [totalQuests, setTotalQuests] = useState(0);
   const [loading, setLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback(async () => {
+    const { data: authData } = await supabase.auth.getUser();
+    const user = authData.user;
+    if (!user) { setLoading(false); return; }
+
+    setEmail(user.email ?? '');
+
+    try {
+      const profile = await getProfile(user.id);
+      if (profile) {
+        setDisplayName(profile.alias ?? profile.full_name ?? '');
+        const rawAvatar = profile.profile_image_url ?? null;
+        setAvatarUrl(rawAvatar
+          ? rawAvatar.startsWith('http') ? rawAvatar : getStorageUrl('user_avatars', rawAvatar)
+          : null);
+        setKeys(profile.keys ?? 0);
+      }
+    } catch (err) {
+      console.error('[ProfileScreen] getProfile failed:', err);
+      const meta = user.user_metadata;
+      setDisplayName(meta?.full_name ?? meta?.name ?? '');
+      setAvatarUrl(meta?.avatar_url ?? null);
+    }
+
+    try {
+      const { data: questRows } = await supabase
+        .from('user_quests')
+        .select('points_earned, trails_completed_count')
+        .eq('user_id', user.id);
+
+      if (questRows) {
+        setTotalPoints(questRows.reduce((s, q) => s + (q.points_earned || 0), 0));
+        setTotalTrails(questRows.reduce((s, q) => s + (q.trails_completed_count || 0), 0));
+        setTotalQuests(questRows.length);
+      }
+    } catch (err) {
+      console.error('[ProfileScreen] user_quests fetch failed:', err);
+    }
+
+    setLoading(false);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      const load = async () => {
-        const { data: authData } = await supabase.auth.getUser();
-        const user = authData.user;
-        if (!user) { setLoading(false); return; }
-
-        setEmail(user.email ?? '');
-
-        try {
-          const profile = await getProfile(user.id);
-          if (profile) {
-            setDisplayName(profile.alias ?? profile.full_name ?? '');
-            const rawAvatar = profile.profile_image_url ?? null;
-            setAvatarUrl(rawAvatar
-              ? rawAvatar.startsWith('http') ? rawAvatar : getStorageUrl('user_avatars', rawAvatar)
-              : null);
-            setKeys(profile.keys ?? 0);
-          }
-        } catch (err) {
-          console.error('[ProfileScreen] getProfile failed:', err);
-          const meta = user.user_metadata;
-          setDisplayName(meta?.full_name ?? meta?.name ?? '');
-          setAvatarUrl(meta?.avatar_url ?? null);
-        }
-
-        try {
-          const { data: questRows } = await supabase
-            .from('user_quests')
-            .select('points_earned, trails_completed_count')
-            .eq('user_id', user.id);
-
-          if (questRows) {
-            setTotalPoints(questRows.reduce((s, q) => s + (q.points_earned || 0), 0));
-            setTotalTrails(questRows.reduce((s, q) => s + (q.trails_completed_count || 0), 0));
-            setTotalQuests(questRows.length);
-          }
-        } catch (err) {
-          console.error('[ProfileScreen] user_quests fetch failed:', err);
-        }
-
-        setLoading(false);
-      };
-
       load();
-    }, []),
+    }, [load]),
   );
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }, [load]);
 
   const handleSignOut = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -144,7 +152,7 @@ export default function ProfileScreen({ navigation }: Props) {
     ? displayName.charAt(0).toUpperCase()
     : email.charAt(0).toUpperCase();
 
-  if (loading) {
+  if (loading && !refreshing) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator color={Colors.orange} size="large" />
@@ -159,6 +167,14 @@ export default function ProfileScreen({ navigation }: Props) {
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={Colors.orange}
+            colors={[Colors.orange]}
+          />
+        }
       >
         {/* Header */}
         <View style={styles.header}>
