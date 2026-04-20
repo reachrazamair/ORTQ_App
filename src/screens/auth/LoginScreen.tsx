@@ -71,7 +71,7 @@ export default function LoginScreen({ navigation }: Props) {
 
     if (error) {
       setLoading(false);
-      Alert.alert('Sign In Failed', error.message);
+      Alert.alert('Error', error.message);
       return;
     }
 

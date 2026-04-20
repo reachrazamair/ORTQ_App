@@ -89,7 +89,9 @@ function PositionBadge({ position }: { position: number }) {
     <View
       style={[
         styles.positionBadge,
-        medalColor ? { backgroundColor: medalColor } : styles.positionBadgeDefault,
+        medalColor
+          ? { backgroundColor: medalColor }
+          : styles.positionBadgeDefault,
       ]}
     >
       <Text
@@ -121,10 +123,20 @@ function UserProfileModal({
 
   const name = getUserName(user);
   const initials = getInitials(name);
-  const hasVehicle = user.vehicle_type || user.make || user.model || user.year || user.rig_description;
+  const hasVehicle =
+    user.vehicle_type ||
+    user.make ||
+    user.model ||
+    user.year ||
+    user.rig_description;
 
   return (
-    <Modal visible={isOpen} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal
+      visible={isOpen}
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}
+    >
       <View style={styles.modalOverlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={styles.modalSheet}>
@@ -157,12 +169,16 @@ function UserProfileModal({
             {/* Stats row */}
             <View style={styles.modalStatsRow}>
               <View style={styles.modalStat}>
-                <Text style={styles.modalStatValue}>{user.points_earned.toLocaleString()}</Text>
+                <Text style={styles.modalStatValue}>
+                  {user.points_earned.toLocaleString()}
+                </Text>
                 <Text style={styles.modalStatLabel}>Points</Text>
               </View>
               <View style={styles.modalStatDivider} />
               <View style={styles.modalStat}>
-                <Text style={styles.modalStatValue}>{user.trails_completed_count}</Text>
+                <Text style={styles.modalStatValue}>
+                  {user.trails_completed_count}
+                </Text>
                 <Text style={styles.modalStatLabel}>Completed Trails</Text>
               </View>
             </View>
@@ -173,21 +189,31 @@ function UserProfileModal({
                 <Text style={styles.modalSectionTitle}>Vehicle</Text>
                 <View style={styles.modalGrid}>
                   <Text style={styles.modalGridLabel}>Type</Text>
-                  <Text style={styles.modalGridValue}>{user.vehicle_type || 'N/A'}</Text>
+                  <Text style={styles.modalGridValue}>
+                    {user.vehicle_type || 'N/A'}
+                  </Text>
 
                   <Text style={styles.modalGridLabel}>Make</Text>
-                  <Text style={styles.modalGridValue}>{user.make || 'N/A'}</Text>
+                  <Text style={styles.modalGridValue}>
+                    {user.make || 'N/A'}
+                  </Text>
 
                   <Text style={styles.modalGridLabel}>Model</Text>
-                  <Text style={styles.modalGridValue}>{user.model || 'N/A'}</Text>
+                  <Text style={styles.modalGridValue}>
+                    {user.model || 'N/A'}
+                  </Text>
 
                   <Text style={styles.modalGridLabel}>Year</Text>
-                  <Text style={styles.modalGridValue}>{user.year || 'N/A'}</Text>
+                  <Text style={styles.modalGridValue}>
+                    {user.year || 'N/A'}
+                  </Text>
                 </View>
                 {user.rig_description && (
                   <View style={styles.modalRigWrap}>
                     <Text style={styles.modalRigLabel}>Rig Description</Text>
-                    <Text style={styles.modalRigText}>{user.rig_description}</Text>
+                    <Text style={styles.modalRigText}>
+                      {user.rig_description}
+                    </Text>
                   </View>
                 )}
               </View>
@@ -238,7 +264,9 @@ function UserRow({
         style={[
           styles.row,
           isCurrentUser && styles.rowCurrentUser,
-          medalColor ? { borderLeftWidth: 4, borderLeftColor: medalColor } : undefined,
+          medalColor
+            ? { borderLeftWidth: 4, borderLeftColor: medalColor }
+            : undefined,
         ]}
       >
         {/* Position badge */}
@@ -247,7 +275,10 @@ function UserRow({
         {/* Avatar */}
         <View style={styles.avatarWrap}>
           {rankedUser.profile_image_url ? (
-            <Image source={{ uri: getAvatarUrl(rankedUser.profile_image_url)! }} style={styles.avatarImg} />
+            <Image
+              source={{ uri: getAvatarUrl(rankedUser.profile_image_url)! }}
+              style={styles.avatarImg}
+            />
           ) : (
             <View
               style={[
@@ -276,7 +307,9 @@ function UserRow({
 
         {/* Points */}
         <View style={styles.pointsWrap}>
-          <Text style={styles.points}>{rankedUser.points_earned.toLocaleString()} pts</Text>
+          <Text style={styles.points}>
+            {rankedUser.points_earned.toLocaleString()} pts
+          </Text>
         </View>
       </TouchableOpacity>
       {!isLast && <View style={styles.divider} />}
@@ -378,11 +411,17 @@ export default function LeaderboardScreen() {
           {[{ id: 'all', name: 'All Regions' }, ...regions].map(region => (
             <TouchableOpacity
               key={region.id}
-              style={[styles.chip, selectedRegion === region.id && styles.chipActive]}
+              style={[
+                styles.chip,
+                selectedRegion === region.id && styles.chipActive,
+              ]}
               onPress={() => setSelectedRegion(region.id)}
             >
               <Text
-                style={[styles.chipText, selectedRegion === region.id && styles.chipTextActive]}
+                style={[
+                  styles.chipText,
+                  selectedRegion === region.id && styles.chipTextActive,
+                ]}
               >
                 {region.name}
               </Text>
@@ -396,7 +435,8 @@ export default function LeaderboardScreen() {
             Top Questers —{' '}
             {selectedRegion === 'all'
               ? 'All Regions'
-              : regions.find(r => r.id === selectedRegion)?.name ?? 'Selected Region'}
+              : regions.find(r => r.id === selectedRegion)?.name ??
+                'Selected Region'}
           </Text>
 
           <View style={styles.card}>
@@ -404,7 +444,7 @@ export default function LeaderboardScreen() {
             {isLoading && (
               <View style={styles.centeredState}>
                 <ActivityIndicator size="large" color={Colors.orange} />
-                <Text style={styles.centeredStateText}>Loading Leaderboard...</Text>
+                <Text style={styles.centeredStateText}>Loading Ranks...</Text>
               </View>
             )}
 

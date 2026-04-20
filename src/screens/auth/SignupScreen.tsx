@@ -87,7 +87,7 @@ export default function SignupScreen({ navigation }: Props) {
 
     if (error) {
       setLoading(false);
-      Alert.alert('Sign Up Failed', error.message);
+      Alert.alert('Error', error.message);
       return;
     }
 
