@@ -9,6 +9,7 @@ import {
   PermissionsAndroid,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -28,6 +29,7 @@ import { supabase } from '../../lib/supabase';
 import { getProfile } from '../../lib/profile';
 import { downloadOfflinePack, deleteOfflinePack } from '../../lib/offlineMap';
 import { saveTrailToCache, getCachedTrails } from '../../lib/trailCache';
+import { emitTrailUnlocked, onTrailCompleted } from '../../lib/trailEvents';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -941,6 +943,7 @@ export default function ExplorerScreen() {
   const [selectedTrail, setSelectedTrail] = useState<Trail | null>(null);
   const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
   const [localFilteredCount, setLocalFilteredCount] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
 
   const navigation = useNavigation<any>();
   const filtersRef = useRef(filters);
@@ -1148,6 +1151,29 @@ export default function ExplorerScreen() {
     }
   }, [userId, userLat, userLon, filters, loadPage]);
 
+  // React instantly when MapScreen completes a trail — no reload needed
+  useEffect(() => {
+    const sub = onTrailCompleted(({ trailId, keysAwarded }) => {
+      setTrails(prev => prev.filter(t => t.id !== trailId));
+      if (keysAwarded > 0) {
+        setUserKeys(prev => prev + keysAwarded);
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
+  // Reload trails + refresh keys whenever this screen comes back into focus
+  // (general freshness — covers background syncs and other server-side changes)
+  useFocusEffect(
+    useCallback(() => {
+      if (!userId || userLat === null || userLon === null) return;
+      loadPage(0, filtersRef.current, userLat, userLon, userId);
+      getProfile(userId).then(p => {
+        if (p) setUserKeys(p.keys ?? 0);
+      }).catch(() => {});
+    }, [userId, userLat, userLon, loadPage]),
+  );
+
   // --- Handlers ---
   const handleApplyFilters = useCallback((f: Filters) => {
     setFilters(f);
@@ -1162,6 +1188,17 @@ export default function ExplorerScreen() {
       setCities((data as BaseVariant[]) ?? []);
     } catch { /* ignore */ }
   }, []);
+
+  const handleRefresh = useCallback(async () => {
+    if (!userId || userLat === null || userLon === null) return;
+    setRefreshing(true);
+    await loadPage(0, filtersRef.current, userLat, userLon, userId);
+    try {
+      const p = await getProfile(userId);
+      if (p) setUserKeys(p.keys ?? 0);
+    } catch {}
+    setRefreshing(false);
+  }, [userId, userLat, userLon, loadPage]);
 
   const handleLoadMore = useCallback(() => {
     if (hasMore && userId && userLat !== null && userLon !== null) {
@@ -1194,6 +1231,7 @@ export default function ExplorerScreen() {
               );
               const remaining = userKeys - trail.keys_to_unlock;
               setUserKeys(remaining);
+              emitTrailUnlocked({ trailId: trail.id, hiddenPoint: data, keysRemaining: remaining });
               // Update detail modal if open
               setSelectedTrail(prev =>
                 prev?.id === trail.id ? { ...prev, user_trail_status: 'unlocked', hidden_point: data } : prev,
@@ -1313,6 +1351,14 @@ export default function ExplorerScreen() {
         ListHeaderComponent={ListHeader}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={Colors.orange}
+            colors={[Colors.orange]}
+          />
+        }
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.3}
         ListFooterComponent={
