@@ -29,6 +29,7 @@
 		81A8592B743536CFC048D014 /* fira_sans_semi_bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 15F23359870CDFA2EE40325A /* fira_sans_semi_bold.ttf */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 		9A8892CB7C24F18A038C0E49 /* gotham_bold.otf in Resources */ = {isa = PBXBuildFile; fileRef = 33B83172E74E33AABF3F9689 /* gotham_bold.otf */; };
+		A3FAC9382B65422DB107BDD8 /* Colors.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 90BD683CE35E4442AB7B8DA7 /* Colors.xcassets */; };
 		A57EAEA1A86D60045AED60CC /* fira_sans_medium_italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 890F38F398BF3EE3148A390C /* fira_sans_medium_italic.ttf */; };
 		A5A5D6CE2B326C0C0DA54EDF /* gotham_bold_italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B52D0E6E801BC17620C41B36 /* gotham_bold_italic.ttf */; };
 		A8450A983F97E03602565ED3 /* fira_sans_light_italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 593627DB5C6DD08249EFC87B /* fira_sans_light_italic.ttf */; };
@@ -39,6 +40,7 @@
 		BF58A2A2A6B869E933EBB818 /* fira_sans_light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 364B2EEEFB36A7724E5AAF60 /* fira_sans_light.ttf */; };
 		D991D71C2E5160F1881434FD /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 		E04D1DD9846C002901559FCE /* fira_sans_black.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D8A193799260973D547E3F9B /* fira_sans_black.ttf */; };
+		E8B129D4087D45949BA3BF37 /* BootSplash.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = F666937AF73546A39052EA8C /* BootSplash.storyboard */; };
 		E916E44CF9AB2E5ADDA00B11 /* fira_sans_thin.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 0BE7D025B8924D7B990C354D /* fira_sans_thin.ttf */; };
 		ED50D59428D0DD37FAED1EF8 /* fira_sans_extra_light_italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = EB15CB5F734F110D47901C30 /* fira_sans_extra_light_italic.ttf */; };
 		F0A97616DD5514AEFFAD57DE /* gotham_italic.otf in Resources */ = {isa = PBXBuildFile; fileRef = BB1D343ACBFD0388EC0861B6 /* gotham_italic.otf */; };
@@ -72,6 +74,7 @@
 		7F28A96D78FD285D80BF2829 /* fira_sans_extra_bold_italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = fira_sans_extra_bold_italic.ttf; path = ORTQ_App/fira_sans_extra_bold_italic.ttf; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = ORTQ_App/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		890F38F398BF3EE3148A390C /* fira_sans_medium_italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = fira_sans_medium_italic.ttf; path = ORTQ_App/fira_sans_medium_italic.ttf; sourceTree = "<group>"; };
+		90BD683CE35E4442AB7B8DA7 /* Colors.xcassets */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = folder.assetcatalog; name = Colors.xcassets; path = ORTQ_App/Colors.xcassets; sourceTree = "<group>"; };
 		A0F0830769960A46D7BE775F /* gotham_thin_italic.otf */ = {isa = PBXFileReference; lastKnownFileType = "org.gnu.gnu-tar"; name = gotham_thin_italic.otf; path = ORTQ_App/gotham_thin_italic.otf; sourceTree = "<group>"; };
 		A622A6C281897E2486FB7F39 /* fira_sans_bold_italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = fira_sans_bold_italic.ttf; path = ORTQ_App/fira_sans_bold_italic.ttf; sourceTree = "<group>"; };
 		B257D8573A47140495A6D8FB /* fira_sans_medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = fira_sans_medium.ttf; path = ORTQ_App/fira_sans_medium.ttf; sourceTree = "<group>"; };
@@ -85,6 +88,7 @@
 		EB15CB5F734F110D47901C30 /* fira_sans_extra_light_italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = fira_sans_extra_light_italic.ttf; path = ORTQ_App/fira_sans_extra_light_italic.ttf; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F6500A522E8F5819C33B32EE /* fira_sans_italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = fira_sans_italic.ttf; path = ORTQ_App/fira_sans_italic.ttf; sourceTree = "<group>"; };
+		F666937AF73546A39052EA8C /* BootSplash.storyboard */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = BootSplash.storyboard; path = ORTQ_App/BootSplash.storyboard; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -137,6 +141,8 @@
 				1AB699DDAB3FF5EE70DDF316 /* gotham_regular.otf */,
 				A0F0830769960A46D7BE775F /* gotham_thin_italic.otf */,
 				C0EB929C47258C2F443FB884 /* gotham_ultra.otf */,
+				F666937AF73546A39052EA8C /* BootSplash.storyboard */,
+				90BD683CE35E4442AB7B8DA7 /* Colors.xcassets */,
 			);
 			name = ORTQ_App;
 			sourceTree = "<group>";
@@ -281,6 +287,8 @@
 				3870A13ED6C89A765FBE1D0C /* gotham_regular.otf in Resources */,
 				621F557F4C62118D2A01854C /* gotham_thin_italic.otf in Resources */,
 				35B99A477E664550CCA6B2B9 /* gotham_ultra.otf in Resources */,
+				E8B129D4087D45949BA3BF37 /* BootSplash.storyboard in Resources */,
+				A3FAC9382B65422DB107BDD8 /* Colors.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

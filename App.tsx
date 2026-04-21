@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { StatusBar, View, Text, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
+import BootSplash from 'react-native-bootsplash';
 import {
   SafeAreaProvider,
   useSafeAreaInsets,
@@ -40,6 +41,7 @@ function AppContent() {
   const [isOffline, setIsOffline] = useState(false);
 
   useEffect(() => {
+    BootSplash.hide({ fade: true });
     const unsubscribeSync = startNetworkSync();
     const unsubscribeNet = NetInfo.addEventListener(state => {
       setIsOffline(state.isConnected === false);

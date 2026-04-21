@@ -1936,6 +1936,28 @@ PODS:
     - React-utils (= 0.85.0)
     - ReactNativeDependencies
   - ReactNativeDependencies (0.85.0)
+  - RNBootSplash (7.3.1):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - rnmapbox-maps (10.3.0):
     - MapboxMaps (~> 11.18.2)
     - React
@@ -2115,6 +2137,7 @@ DEPENDENCIES:
   - ReactCodegen (from `build/generated/ios/ReactCodegen`)
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
   - ReactNativeDependencies (from `../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec`)
+  - RNBootSplash (from `../node_modules/react-native-bootsplash`)
   - "rnmapbox-maps (from `../node_modules/@rnmapbox/maps`)"
   - RNScreens (from `../node_modules/react-native-screens`)
   - RNVectorIcons (from `../node_modules/react-native-vector-icons`)
@@ -2285,6 +2308,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon"
   ReactNativeDependencies:
     :podspec: "../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec"
+  RNBootSplash:
+    :path: "../node_modules/react-native-bootsplash"
   rnmapbox-maps:
     :path: "../node_modules/@rnmapbox/maps"
   RNScreens:
@@ -2376,6 +2401,7 @@ SPEC CHECKSUMS:
   ReactCodegen: ab01ebfffac5cda9140204eb872ed97c15df225f
   ReactCommon: 47ef95b0920948a0b54d7439f7452501eeeac071
   ReactNativeDependencies: 2ca74f752f9ccf149ba3c8b475568c75f779d4c4
+  RNBootSplash: 6168038330c842a9f6c8ac70ebdacac3daeac978
   rnmapbox-maps: ed299b7e1dff087b313de5c361e298ef7a37eb0c
   RNScreens: 63cc2156368ac1a8239e9131103c2fef901fc381
   RNVectorIcons: 9d52f79c911eb6099a14b8135bd261ccef039fcb
