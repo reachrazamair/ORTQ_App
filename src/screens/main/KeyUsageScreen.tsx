@@ -49,9 +49,9 @@ function formatDate(iso: string): string {
   });
 }
 
-function TrailRow({ trail, showPoints }: { trail: TrailParticipant; showPoints: boolean }) {
+function TrailRow({ trail, showPoints, isLast }: { trail: TrailParticipant; showPoints: boolean; isLast?: boolean }) {
   return (
-    <View style={styles.trailRow}>
+    <View style={[styles.trailRow, isLast && { borderBottomWidth: 0 }]}>
       <View style={{ flex: 1 }}>
         <Text style={styles.trailName}>{trail.trail_name}</Text>
         <Text style={styles.trailMeta}>Unlocked: {formatDate(trail.joined_at)}</Text>
@@ -103,8 +103,8 @@ function QuestCard({ summary }: { summary: QuestSummary }) {
             {unlocked_not_achieved.length === 0 ? (
               <Text style={styles.sectionEmpty}>No trails pending.</Text>
             ) : (
-              unlocked_not_achieved.map(t => (
-                <TrailRow key={t.id} trail={t} showPoints={false} />
+              unlocked_not_achieved.map((t, i) => (
+                <TrailRow key={t.id} trail={t} showPoints={false} isLast={i === unlocked_not_achieved.length - 1} />
               ))
             )}
           </View>
@@ -117,8 +117,8 @@ function QuestCard({ summary }: { summary: QuestSummary }) {
             {unlocked_and_achieved.length === 0 ? (
               <Text style={styles.sectionEmpty}>No trails achieved yet.</Text>
             ) : (
-              unlocked_and_achieved.map(t => (
-                <TrailRow key={t.id} trail={t} showPoints />
+              unlocked_and_achieved.map((t, i) => (
+                <TrailRow key={t.id} trail={t} showPoints isLast={i === unlocked_and_achieved.length - 1} />
               ))
             )}
           </View>
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#fff',
   },
   questTitle: { fontFamily: Fonts.firaSansBold, fontSize: 14, color: Colors.blueGrey, marginBottom: 2 },
   questDates: { fontFamily: Fonts.firaSansRegular, fontSize: 12, color: '#9AA0A6' },
