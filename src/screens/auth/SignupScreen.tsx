@@ -83,6 +83,7 @@ export default function SignupScreen({ navigation }: Props) {
     const { error } = await supabase.auth.signUp({
       email,
       password,
+      options: { emailRedirectTo: 'ortq://verify' },
     });
 
     if (error) {

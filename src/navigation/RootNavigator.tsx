@@ -13,9 +13,9 @@ export default function RootNavigator() {
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   const handleDeepLink = async (url: string) => {
-    if (!url.startsWith('ortq://reset-password')) return;
+    if (!url.startsWith('ortq://reset-password') && !url.startsWith('ortq://verify')) return;
 
-    // Parse access_token and refresh_token from the URL fragment
+    // Parse tokens from the URL fragment or query string
     const fragment = url.split('#')[1] ?? url.split('?')[1] ?? '';
     const params = Object.fromEntries(new URLSearchParams(fragment));
 
