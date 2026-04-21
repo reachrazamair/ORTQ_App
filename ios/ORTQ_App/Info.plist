@@ -22,6 +22,15 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>ortq</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
@@ -35,10 +44,10 @@
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>We need camera access to let you take a profile photo.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>We need photo library access to let you choose a profile photo.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>ORTQ needs your location to show nearby off-road trails.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>We need photo library access to let you choose a profile photo.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UIAppFonts</key>
@@ -74,15 +83,6 @@
 		<string>fira_sans_black.ttf</string>
 		<string>fira_sans_light_italic.ttf</string>
 		<string>fira_sans_medium.ttf</string>
-	</array>
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>ortq</string>
-			</array>
-		</dict>
 	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>BootSplash</string>
