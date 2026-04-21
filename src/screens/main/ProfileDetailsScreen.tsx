@@ -26,9 +26,9 @@ function SectionTitle({ title }: { title: string }) {
   return <Text style={styles.sectionTitle}>{title}</Text>;
 }
 
-function InfoRow({ label, value }: { label: string; value?: string | null }) {
+function InfoRow({ label, value, isLast }: { label: string; value?: string | null; isLast?: boolean }) {
   return (
-    <View style={styles.infoRow}>
+    <View style={[styles.infoRow, isLast && { borderBottomWidth: 0 }]}>
       <Text style={styles.infoLabel}>{label}</Text>
       <Text style={[styles.infoValue, !value && styles.infoValueEmpty]}>
         {value || 'N/A'}
@@ -105,7 +105,7 @@ export default function ProfileDetailsScreen({ navigation }: Props) {
           <InfoRow label="Full Name" value={profile?.full_name} />
           <InfoRow label="Alias" value={profile?.alias} />
           <InfoRow label="Email" value={profile?.email ?? email} />
-          <InfoRow label="Phone" value={profile?.phone} />
+          <InfoRow label="Phone" value={profile?.phone} isLast />
         </View>
 
         <View style={styles.card}>
@@ -114,7 +114,7 @@ export default function ProfileDetailsScreen({ navigation }: Props) {
           <InfoRow label="City" value={profile?.city?.name} />
           <InfoRow label="State" value={profile?.state?.name} />
           <InfoRow label="Zip Code" value={profile?.zip_code} />
-          <InfoRow label="Region" value={profile?.state?.region?.name} />
+          <InfoRow label="Region" value={profile?.state?.region?.name} isLast />
         </View>
 
         <View style={styles.card}>
@@ -123,7 +123,12 @@ export default function ProfileDetailsScreen({ navigation }: Props) {
           <InfoRow label="Make" value={profile?.make} />
           <InfoRow label="Model" value={profile?.model} />
           <InfoRow label="Year" value={profile?.year} />
-          <InfoRow label="Rig Description" value={profile?.rig_description} />
+          <View style={[styles.infoRow, { flexDirection: 'column', borderBottomWidth: 0 }]}>
+            <Text style={[styles.infoLabel, { marginBottom: 12 }]}>Rig Description</Text>
+            <Text style={[styles.aboutText, !profile?.rig_description && styles.infoValueEmpty]}>
+              {profile?.rig_description || 'N/A'}
+            </Text>
+          </View>
         </View>
 
         <View style={styles.card}>
