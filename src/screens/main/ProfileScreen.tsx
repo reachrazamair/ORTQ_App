@@ -184,13 +184,15 @@ export default function ProfileScreen({ navigation }: Props) {
           >
             <Text style={styles.editButtonText}>Edit Profile</Text>
           </TouchableOpacity>
-          {avatarUrl ? (
-            <Image source={{ uri: avatarUrl }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatar, styles.avatarPlaceholder]}>
-              <Text style={styles.avatarText}>{avatarInitial}</Text>
-            </View>
-          )}
+          <View style={styles.avatarRing}>
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                <Text style={styles.avatarText}>{avatarInitial}</Text>
+              </View>
+            )}
+          </View>
           <Text style={styles.displayName}>{displayName || 'Explorer'}</Text>
           <Text style={styles.emailText}>{email}</Text>
         </View>
@@ -314,16 +316,19 @@ const styles = StyleSheet.create({
     borderColor: Colors.orange,
   },
   editButtonText: { fontFamily: Fonts.firaSansBold, fontSize: 13, color: Colors.orange },
-  avatar: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+  avatarRing: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    borderWidth: 2,
+    borderColor: Colors.orange,
+    padding: 2,
     marginBottom: 16,
-    shadowColor: Colors.orange,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+  },
+  avatar: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 44,
   },
   avatarPlaceholder: { backgroundColor: Colors.orange, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontFamily: Fonts.gothamBold, fontSize: 36, color: '#fff' },

@@ -759,11 +759,20 @@ const styles = StyleSheet.create({
   },
 
   // Avatar
-  avatarWrapper: { alignSelf: 'center', marginBottom: 32 },
-  avatar: { width: 96, height: 96, borderRadius: 48 },
+  avatarWrapper: {
+    alignSelf: 'center',
+    marginBottom: 32,
+    width: 104,
+    height: 104,
+    borderRadius: 52,
+    borderWidth: 2,
+    borderColor: Colors.orange,
+    padding: 2,
+  },
+  avatar: { width: '100%', height: '100%', borderRadius: 48 },
   avatarPlaceholder: {
-    width: 96,
-    height: 96,
+    width: '100%',
+    height: '100%',
     borderRadius: 48,
     backgroundColor: Colors.orange,
     alignItems: 'center',
