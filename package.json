@@ -10,7 +10,7 @@
     "test": "jest"
   },
   "dependencies": {
-    "@react-native-async-storage/async-storage": "^3.0.2",
+    "@react-native-async-storage/async-storage": "^2.1.2",
     "@react-native-community/geolocation": "^3.4.0",
     "@react-native-community/netinfo": "^11.5.2",
     "@react-native/new-app-screen": "0.85.0",
