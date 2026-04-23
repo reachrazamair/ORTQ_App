@@ -1,4 +1,4 @@
-package com.ortq_app
+package com.ortq.app
 
 import android.os.Bundle
 import com.facebook.react.ReactActivity
