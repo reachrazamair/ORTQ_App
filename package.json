@@ -26,6 +26,7 @@
     "react-native-confetti-cannon": "^1.5.2",
     "react-native-config": "^1.6.1",
     "react-native-image-picker": "^8.2.1",
+    "react-native-mask-input": "^1.2.3",
     "react-native-safe-area-context": "^5.5.2",
     "react-native-screens": "^4.24.0",
     "react-native-url-polyfill": "^3.0.0",

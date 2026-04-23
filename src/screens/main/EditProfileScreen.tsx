@@ -19,6 +19,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import MaskInput from 'react-native-mask-input';
 import Config from 'react-native-config';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
@@ -509,15 +510,20 @@ export default function EditProfileScreen({ navigation }: Props) {
               editable={!saving}
               error={errors.alias}
             />
-            <CustomInput
-              label="Phone (optional)"
-              placeholder="e.g. 123-456-7890"
-              value={phone}
-              onChangeText={text => { setPhone(text); clearError('phone'); }}
-              editable={!saving}
-              error={errors.phone}
-              keyboardType="phone-pad"
-            />
+            <View>
+              <Text style={styles.inputLabel}>Phone (optional)</Text>
+              <MaskInput
+                style={[styles.maskedInput, !!errors.phone && styles.maskedInputError]}
+                value={phone}
+                onChangeText={(masked) => { setPhone(masked); clearError('phone'); }}
+                mask={['+', '1', ' ', '(', /\d/, /\d/, /\d/, ')', ' ', /\d/, /\d/, /\d/, '-', /\d/, /\d/, /\d/, /\d/]}
+                placeholder="+1 (555) 000-0000"
+                keyboardType="phone-pad"
+                editable={!saving}
+                placeholderTextColor="#9AA0A6"
+              />
+              {!!errors.phone && <Text style={styles.inputError}>{errors.phone}</Text>}
+            </View>
           </View>
 
           {/* ── Address ── */}
@@ -808,6 +814,21 @@ const styles = StyleSheet.create({
   },
 
   fieldGroup: { gap: 20, marginBottom: 24 },
+
+  inputLabel: { fontFamily: Fonts.firaSansBold, fontSize: 14, color: Colors.blueGrey, marginBottom: 6 },
+  maskedInput: {
+    height: 50,
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    fontFamily: Fonts.firaSansRegular,
+    fontSize: 15,
+    color: Colors.blueGrey,
+    backgroundColor: '#fff',
+  },
+  maskedInputError: { borderColor: Colors.error },
+  inputError: { fontFamily: Fonts.firaSansRegular, fontSize: 12, color: Colors.error, marginTop: 4 },
 
   // Picker row
   pickerWrap: { gap: 8 },

@@ -39,8 +39,8 @@ export const editProfileSchema = z.object({
   phone: z
     .string()
     .optional()
-    .refine(val => !val || /^\(?\d{3}\)?[- ]?\d{3}[- ]?\d{4}$/.test(val), {
-      message: 'Phone number must be valid (e.g., 123-456-7890)',
+    .refine(val => !val || /^\+1 \(\d{3}\) \d{3}-\d{4}$/.test(val), {
+      message: 'Phone number must be valid (e.g., +1 (555) 000-0000)',
     }),
   address: z.string().min(5, 'Address Line must be at least 5 characters'),
   zipCode: z
