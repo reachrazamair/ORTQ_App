@@ -15,6 +15,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
+import Config from 'react-native-config';
 import { supabase } from '../../lib/supabase';
 import { ProfileStackParamList } from '../../navigation/ProfileStack';
 
@@ -110,16 +111,34 @@ export default function AccountSettingsScreen({ navigation }: Props) {
   const handleDeleteAccount = () => {
     Alert.alert(
       'Delete Account',
-      'Your account and all associated data will be permanently deleted in 30 days. This action cannot be undone.',
+      'Your account and all associated data will be permanently deleted immediately. This action cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Confirm',
+          text: 'Delete',
           style: 'destructive',
           onPress: async () => {
             setDeleting(true);
             try {
-              await supabase.rpc('request_account_deletion');
+              const { data: { session } } = await supabase.auth.getSession();
+              if (!session) throw new Error('No active session');
+
+              const res = await fetch(
+                `${Config.SUPABASE_URL}/functions/v1/delete-self`,
+                {
+                  method: 'POST',
+                  headers: {
+                    Authorization: `Bearer ${session.access_token}`,
+                    'Content-Type': 'application/json',
+                  },
+                },
+              );
+
+              if (!res.ok) {
+                const body = await res.json();
+                throw new Error(body.error ?? 'Failed to delete account');
+              }
+
               await supabase.auth.signOut();
             } catch {
               Alert.alert('Error', 'Could not process your request. Please try again later.');
