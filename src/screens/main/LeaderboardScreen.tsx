@@ -330,6 +330,7 @@ export default function LeaderboardScreen() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [initialized, setInitialized] = useState(false);
 
   // Fetch regions + current user once on mount, default to user's own region
   useEffect(() => {
@@ -353,6 +354,9 @@ export default function LeaderboardScreen() {
         const regionId = (profile?.state as any)?.region?.id;
         if (regionId) setSelectedRegion(regionId);
       }
+
+      // Mark init done — leaderboard fetch will now run with the correct region
+      setInitialized(true);
     };
     init();
   }, []);
@@ -370,8 +374,9 @@ export default function LeaderboardScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      if (!initialized) return;
       loadLeaderboard();
-    }, [loadLeaderboard]),
+    }, [loadLeaderboard, initialized]),
   );
 
   const handleRefresh = useCallback(async () => {
@@ -419,13 +424,13 @@ export default function LeaderboardScreen() {
           <Text style={styles.headerSub}>Top Questers</Text>
         </View>
 
-        {/* Region filter chips */}
+        {/* Region filter chips — hidden until init so no flicker on active chip */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterRow}
         >
-          {[{ id: 'all', name: 'All Regions' }, ...regions].map(region => (
+          {initialized && [{ id: 'all', name: 'All Regions' }, ...regions].map(region => (
             <TouchableOpacity
               key={region.id}
               style={[

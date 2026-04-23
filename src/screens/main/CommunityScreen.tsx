@@ -572,11 +572,16 @@ export default function CommunityScreen() {
   // Render
   // ---------------------------------------------------------------------------
 
-  return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F5F5F5" />
+  const listData = activeTab === 'feed' ? posts : activeTab === 'groups' ? myGroups : filteredGroups;
 
-      {/* Header */}
+  const isLoadingTab = activeTab === 'feed' ? loadingPosts : activeTab === 'groups' ? loadingMyGroups : loadingDiscover;
+
+  const emptyIcon = activeTab === 'feed' ? 'chatbubbles-outline' : activeTab === 'groups' ? 'people-outline' : 'compass-outline';
+  const emptyTitle = activeTab === 'feed' ? 'No posts yet' : activeTab === 'groups' ? 'No groups yet' : 'No groups found';
+  const emptyBody = activeTab === 'feed' ? 'Be the first to share something!' : activeTab === 'groups' ? 'Discover and join groups in the Discover tab.' : 'Try a different search term.';
+
+  const ListHeader = (
+    <>
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>Community</Text>
@@ -589,7 +594,6 @@ export default function CommunityScreen() {
         )}
       </View>
 
-      {/* Segment tabs */}
       <View style={styles.segmentRow}>
         {(['feed', 'groups', 'discover'] as Tab[]).map(tab => (
           <TouchableOpacity
@@ -604,102 +608,38 @@ export default function CommunityScreen() {
         ))}
       </View>
 
-      {/* Feed tab */}
-      {activeTab === 'feed' && (
-        <FlatList
-          data={posts}
-          keyExtractor={item => item.id}
-          renderItem={({ item }) => (
-            <PostCard post={item} currentUserId={currentUserId} onDelete={handleDeletePost} />
-          )}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              tintColor={Colors.orange}
-              colors={[Colors.orange]}
-            />
-          }
-          ListEmptyComponent={
-            loadingPosts ? (
-              <View style={styles.centered}>
-                <ActivityIndicator color={Colors.orange} />
-              </View>
-            ) : (
-              <View style={styles.emptyState}>
-                <Icon name="chatbubbles-outline" size={48} color="#9AA0A6" />
-                <Text style={styles.emptyTitle}>No posts yet</Text>
-                <Text style={styles.emptyBody}>Be the first to share something!</Text>
-              </View>
-            )
-          }
-        />
-      )}
-
-      {/* My Groups tab */}
-      {activeTab === 'groups' && (
-        <FlatList
-          data={myGroups}
-          keyExtractor={item => item.id}
-          renderItem={({ item }) => (
-            <GroupCard
-              group={item}
-              onPress={() => navigation.navigate('GroupChat', { groupId: item.id, groupName: item.name })}
-              onJoin={handleJoinGroup}
-              onLeave={handleLeaveGroup}
-              currentUserId={currentUserId}
-            />
-          )}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              tintColor={Colors.orange}
-              colors={[Colors.orange]}
-            />
-          }
-          ListEmptyComponent={
-            loadingMyGroups ? (
-              <View style={styles.centered}>
-                <ActivityIndicator color={Colors.orange} />
-              </View>
-            ) : (
-              <View style={styles.emptyState}>
-                <Icon name="people-outline" size={48} color="#9AA0A6" />
-                <Text style={styles.emptyTitle}>No groups yet</Text>
-                <Text style={styles.emptyBody}>Discover and join groups in the Discover tab.</Text>
-              </View>
-            )
-          }
-        />
-      )}
-
-      {/* Discover tab */}
       {activeTab === 'discover' && (
-        <View style={styles.flex}>
-          <View style={styles.searchWrap}>
-            <Icon name="search-outline" size={16} color="#9AA0A6" style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Search groups..."
-              placeholderTextColor="#9AA0A6"
-            />
-            {search.length > 0 && (
-              <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Icon name="close-circle" size={16} color="#9AA0A6" />
-              </TouchableOpacity>
-            )}
-          </View>
-          <FlatList
-            data={filteredGroups}
-            keyExtractor={item => item.id}
-            renderItem={({ item }) => (
+        <View style={styles.searchWrap}>
+          <Icon name="search-outline" size={16} color="#9AA0A6" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search groups..."
+            placeholderTextColor="#9AA0A6"
+          />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Icon name="close-circle" size={16} color="#9AA0A6" />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+    </>
+  );
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F5F5F5" />
+
+      <FlatList
+        data={listData as any[]}
+        keyExtractor={item => item.id}
+        renderItem={({ item }) => (
+          <View style={styles.itemPad}>
+            {activeTab === 'feed' ? (
+              <PostCard post={item} currentUserId={currentUserId} onDelete={handleDeletePost} />
+            ) : (
               <GroupCard
                 group={item}
                 onPress={() => navigation.navigate('GroupChat', { groupId: item.id, groupName: item.name })}
@@ -708,32 +648,33 @@ export default function CommunityScreen() {
                 currentUserId={currentUserId}
               />
             )}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={handleRefresh}
-                tintColor={Colors.orange}
-                colors={[Colors.orange]}
-              />
-            }
-            ListEmptyComponent={
-              loadingDiscover ? (
-                <View style={styles.centered}>
-                  <ActivityIndicator color={Colors.orange} />
-                </View>
-              ) : (
-                <View style={styles.emptyState}>
-                  <Icon name="compass-outline" size={48} color="#9AA0A6" />
-                  <Text style={styles.emptyTitle}>No groups found</Text>
-                  <Text style={styles.emptyBody}>Try a different search term.</Text>
-                </View>
-              )
-            }
+          </View>
+        )}
+        ListHeaderComponent={ListHeader}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={Colors.orange}
+            colors={[Colors.orange]}
           />
-        </View>
-      )}
+        }
+        ListEmptyComponent={
+          isLoadingTab ? (
+            <View style={styles.centered}>
+              <ActivityIndicator color={Colors.orange} />
+            </View>
+          ) : (
+            <View style={styles.emptyState}>
+              <Icon name={emptyIcon} size={48} color="#9AA0A6" />
+              <Text style={styles.emptyTitle}>{emptyTitle}</Text>
+              <Text style={styles.emptyBody}>{emptyBody}</Text>
+            </View>
+          )
+        }
+      />
 
       <ComposeModal
         visible={showCompose}
@@ -816,7 +757,8 @@ const styles = StyleSheet.create({
   },
 
   // List
-  listContent: { paddingHorizontal: 16, paddingBottom: 32 },
+  listContent: { paddingBottom: 32 },
+  itemPad: { paddingHorizontal: 16 },
 
   // Post card
   postCard: {
