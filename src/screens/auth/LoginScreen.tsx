@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -98,9 +99,11 @@ export default function LoginScreen({ navigation }: Props) {
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.header}>
-            <View style={styles.logoCircle}>
-              <Text style={styles.logoText}>O</Text>
-            </View>
+            <Image
+              source={require('../../../assets/bootsplash/logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
             <Text style={styles.welcomeText}>Welcome Back</Text>
             <Text style={styles.subText}>Sign in to continue to ORTQ</Text>
           </View>
@@ -180,24 +183,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 48,
   },
-  logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: Colors.orange,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-    shadowColor: Colors.orange,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  logoText: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 40,
-    color: '#fff',
+  logo: {
+    width: 72,
+    height: 72,
+    marginBottom: 32,
   },
   welcomeText: {
     fontFamily: Fonts.gothamBold,
