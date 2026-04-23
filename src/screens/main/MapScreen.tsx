@@ -268,6 +268,9 @@ export default function MapScreen() {
   const [loading, setLoading] = useState(true);
 
   const completedIds = useRef<Set<string>>(new Set());
+  // Refs so the GPS callback always sees the latest values without restarting the watch
+  const selectedTrailRef = useRef<TrailMarker | null>(null);
+  const isFollowingRef = useRef(true);
 
   // React instantly when ExplorerScreen unlocks a trail — add marker without reload
   useEffect(() => {
@@ -363,7 +366,13 @@ export default function MapScreen() {
     }, []),
   );
 
+  // Keep refs in sync so GPS callback always reads latest without restarting the watch
+  useEffect(() => { selectedTrailRef.current = selectedTrail; }, [selectedTrail]);
+  useEffect(() => { isFollowingRef.current = isFollowing; }, [isFollowing]);
+
   // --- Watch GPS ---
+  // Empty deps: watch starts on focus and stops on blur — never restarts mid-session
+  // because selectedTrail/isFollowing changed. Refs provide fresh values instead.
   useFocusEffect(
     useCallback(() => {
       watchId.current = Geolocation.watchPosition(
@@ -374,7 +383,7 @@ export default function MapScreen() {
           };
           setUserCoords(coords);
 
-          if (isFollowing) {
+          if (isFollowingRef.current) {
             cameraRef.current?.setCamera({
               centerCoordinate: [coords.longitude, coords.latitude],
               animationDuration: 500,
@@ -382,20 +391,21 @@ export default function MapScreen() {
           }
 
           // Auto-complete check — only for the trail the user has selected
+          const active = selectedTrailRef.current;
           if (
-            selectedTrail &&
-            selectedTrail.user_trail_status === 'unlocked' &&
-            selectedTrail.hidden_point &&
-            !completedIds.current.has(selectedTrail.id)
+            active &&
+            active.user_trail_status === 'unlocked' &&
+            active.hidden_point &&
+            !completedIds.current.has(active.id)
           ) {
             const dist = haversineDistance(coords, {
-              latitude: selectedTrail.hidden_point.latitude,
-              longitude: selectedTrail.hidden_point.longitude,
+              latitude: active.hidden_point.latitude,
+              longitude: active.hidden_point.longitude,
             });
 
-            if (dist <= selectedTrail.distance_tolerance) {
-              completedIds.current.add(selectedTrail.id);
-              handleCompleteTrail(selectedTrail, coords);
+            if (dist <= active.distance_tolerance) {
+              completedIds.current.add(active.id);
+              handleCompleteTrail(active, coords);
             }
           }
         },
@@ -409,23 +419,30 @@ export default function MapScreen() {
           watchId.current = null;
         }
       };
-    }, [trails, isFollowing, selectedTrail]),
+    }, []),
   );
 
   // --- Center on focused trail from Explorer ---
-  useEffect(() => {
-    if (!focusedTrailId) return;
-    const trail = trails.find(t => t.id === focusedTrailId);
-    if (trail?.hidden_point) {
+  // useFocusEffect re-runs every time the screen gains focus, so tapping
+  // "Verify Location" on the same trail a second time still re-centers.
+  useFocusEffect(
+    useCallback(() => {
+      if (!focusedTrailId) return;
+      const trail = trails.find(t => t.id === focusedTrailId);
+      if (!trail?.hidden_point) return;
       setIsFollowing(false);
       setSelectedTrail(trail);
-      cameraRef.current?.setCamera({
-        centerCoordinate: [trail.hidden_point.longitude, trail.hidden_point.latitude],
-        zoomLevel: 15,
-        animationDuration: 800,
-      });
-    }
-  }, [focusedTrailId, trails]);
+      // Delay so the tab transition finishes before Mapbox accepts setCamera
+      const timer = setTimeout(() => {
+        cameraRef.current?.setCamera({
+          centerCoordinate: [trail.hidden_point!.longitude, trail.hidden_point!.latitude],
+          zoomLevel: 15,
+          animationDuration: 800,
+        });
+      }, 350);
+      return () => clearTimeout(timer);
+    }, [focusedTrailId, trails]),
+  );
 
   // --- Complete trail ---
   const handleCompleteTrail = async (trail: TrailMarker, coords: Coords) => {
