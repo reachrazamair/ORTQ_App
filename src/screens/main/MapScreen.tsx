@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Clipboard,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -538,7 +539,7 @@ export default function MapScreen() {
           {/* Trail markers */}
           {trails.map(trail => {
             if (!trail.hidden_point) return null;
-            const color = getMarkerColor(trail.user_trail_status);
+            const isCustomIcon = trail.user_trail_status === 'completed' || trail.user_trail_status === 'unlocked';
             return (
               <Mapbox.MarkerView
                 key={trail.id}
@@ -549,20 +550,16 @@ export default function MapScreen() {
                     setSelectedTrail(trail);
                     setIsFollowing(false);
                   }}
-                  style={[styles.marker, { backgroundColor: color }]}
                   activeOpacity={0.8}
+                  style={isCustomIcon ? styles.markerCustom : [styles.marker, { backgroundColor: getMarkerColor(trail.user_trail_status) }]}
                 >
-                  <Icon
-                    name={
-                      trail.user_trail_status === 'completed'
-                        ? 'checkmark'
-                        : trail.user_trail_status === 'unlocked'
-                        ? 'lock-open'
-                        : 'lock-closed'
-                    }
-                    size={14}
-                    color="#fff"
-                  />
+                  {trail.user_trail_status === 'completed' ? (
+                    <Image source={require('../../../assets/marker_completed.png')} style={styles.markerImage} />
+                  ) : trail.user_trail_status === 'unlocked' ? (
+                    <Image source={require('../../../assets/marker_unlocked.png')} style={styles.markerImage} />
+                  ) : (
+                    <Icon name="lock-closed" size={14} color="#fff" />
+                  )}
                 </TouchableOpacity>
               </Mapbox.MarkerView>
             );
@@ -635,6 +632,16 @@ const styles = StyleSheet.create({
 
   mapWrap: { flex: 1 },
   map: { flex: 1 },
+
+  markerCustom: {
+    width: 40,
+    height: 40,
+  },
+  markerImage: {
+    width: 40,
+    height: 40,
+    resizeMode: 'contain',
+  },
 
   marker: {
     width: 32,
