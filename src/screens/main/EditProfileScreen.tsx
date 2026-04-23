@@ -447,7 +447,7 @@ export default function EditProfileScreen({ navigation }: Props) {
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {/* Back + Title */}
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} disabled={saving}>
-            <Text style={styles.backArrow}>←</Text>
+            <Ionicons name="chevron-back" size={24} color={Colors.blueGrey} />
           </TouchableOpacity>
 
           <View style={styles.titleWrap}>
@@ -719,7 +719,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 24,
   },
-  backArrow: { fontSize: 20, color: Colors.blueGrey },
+
 
   titleWrap: { marginBottom: 24 },
   title: { fontFamily: Fonts.gothamBold, fontSize: 28, color: Colors.blueGrey, marginBottom: 6 },

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
@@ -93,7 +94,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
             onPress={() => navigation.goBack()}
             disabled={loading}
           >
-            <Text style={styles.backArrow}>←</Text>
+            <Ionicons name="chevron-back" size={24} color={Colors.blueGrey} />
           </TouchableOpacity>
 
           <View style={styles.header}>
@@ -160,10 +161,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 32,
-  },
-  backArrow: {
-    fontSize: 20,
-    color: Colors.blueGrey,
   },
   header: {
     marginBottom: 48,
