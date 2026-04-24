@@ -1,6 +1,6 @@
 import Mapbox from '@rnmapbox/maps';
 
-const TILE_BUFFER_DEG = 0.07; // ~7-8 km radius around hidden point
+const TILE_BUFFER_DEG = 0.145; // ~10 miles (16 km) radius around hidden point
 const STYLE_URL = Mapbox.StyleURL.Outdoors;
 const MIN_ZOOM = 10;
 const MAX_ZOOM = 16;
