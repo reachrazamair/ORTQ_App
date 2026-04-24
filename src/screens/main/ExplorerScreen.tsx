@@ -1247,7 +1247,7 @@ export default function ExplorerScreen() {
               );
               const remaining = userKeys - trail.keys_to_unlock;
               setUserKeys(remaining);
-              emitTrailUnlocked({ trailId: trail.id, hiddenPoint: data, keysRemaining: remaining });
+              emitTrailUnlocked({ trailId: trail.id, trailName: trail.name, distanceTolerance: trail.distance_tolerance, hiddenPoint: data, keysRemaining: remaining });
               // Update detail modal if open
               setSelectedTrail(prev =>
                 prev?.id === trail.id ? { ...prev, user_trail_status: 'unlocked', hidden_point: data } : prev,

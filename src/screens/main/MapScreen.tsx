@@ -1,10 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   Clipboard,
   Image,
-  Modal,
-  Pressable,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -12,27 +9,22 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import ConfettiCannon from 'react-native-confetti-cannon';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Mapbox from '@rnmapbox/maps';
-import Geolocation from '@react-native-community/geolocation';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Config from 'react-native-config';
 import { useFocusEffect, useRoute, RouteProp } from '@react-navigation/native';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 import { supabase } from '../../lib/supabase';
-import { downloadOfflinePack, deleteOfflinePack } from '../../lib/offlineMap';
+import { downloadOfflinePack } from '../../lib/offlineMap';
 import {
   getCachedTrails,
   saveAllTrailsToCache,
-  updateTrailStatusInCache,
-  addToCompletionQueue,
   getCompletionQueue,
-  removeTrailFromCache,
 } from '../../lib/trailCache';
 import { flushCompletionQueue } from '../../lib/syncService';
-import { emitTrailCompleted, onTrailUnlocked } from '../../lib/trailEvents';
+import { onTrailCompleted, onTrailUnlocked, onGpsUpdate, getLastGpsPosition } from '../../lib/trailEvents';
 
 Mapbox.setAccessToken(Config.MAPBOX_TOKEN ?? '');
 
@@ -90,71 +82,6 @@ function getMarkerColor(status: TrailStatus): string {
   if (status === 'completed') return '#22C55E';
   if (status === 'unlocked') return '#3B82F6';
   return '#9AA0A6';
-}
-
-// ---------------------------------------------------------------------------
-// Trail Completed Modal
-// ---------------------------------------------------------------------------
-
-function TrailCompletedModal({
-  trail,
-  visible,
-  onClose,
-}: {
-  trail: TrailMarker | null;
-  visible: boolean;
-  onClose: () => void;
-}) {
-  if (!trail) return null;
-  const hp = trail.hidden_point;
-
-  return (
-    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
-      <View style={styles.completedOverlay}>
-        {visible && (
-          <ConfettiCannon
-            count={120}
-            origin={{ x: -10, y: 0 }}
-            autoStart
-            fadeOut
-            explosionSpeed={350}
-            fallSpeed={3000}
-            colors={['#FFD700', '#FF4500', '#00BFFF', '#32CD32', '#FF69B4']}
-          />
-        )}
-        <View style={styles.completedSheet}>
-          <View style={styles.completedIconWrap}>
-            <Icon name="checkmark-circle" size={56} color="#22C55E" />
-          </View>
-          <Text style={styles.completedTitle}>Trail Completed!</Text>
-          <Text style={styles.completedSubtitle}>
-            You've successfully completed "{trail.name}"!
-          </Text>
-
-          {hp && (
-            <View style={styles.completedRewards}>
-              {hp.points_awarded > 0 && (
-                <View style={styles.completedRewardRow}>
-                  <Icon name="trophy" size={20} color="#F59E0B" />
-                  <Text style={styles.completedRewardText}>{hp.points_awarded} Points Earned</Text>
-                </View>
-              )}
-              {hp.keys_awarded > 0 && (
-                <View style={styles.completedRewardRow}>
-                  <Icon name="key" size={20} color="#D97706" />
-                  <Text style={styles.completedRewardText}>{hp.keys_awarded} Keys Awarded</Text>
-                </View>
-              )}
-            </View>
-          )}
-
-          <TouchableOpacity style={styles.completedBtn} onPress={onClose}>
-            <Text style={styles.completedBtnText}>Awesome!</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -258,22 +185,18 @@ export default function MapScreen() {
   const focusedTrailId = route.params?.trailId ?? null;
 
   const cameraRef = useRef<Mapbox.Camera>(null);
-  const watchId = useRef<number | null>(null);
 
   const [userCoords, setUserCoords] = useState<Coords | null>(null);
   const [trails, setTrails] = useState<TrailMarker[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [selectedTrail, setSelectedTrail] = useState<TrailMarker | null>(null);
-  const [completedTrail, setCompletedTrail] = useState<TrailMarker | null>(null);
   const [isFollowing, setIsFollowing] = useState(true);
   const [loading, setLoading] = useState(true);
 
   const completedIds = useRef<Set<string>>(new Set());
-  // Refs so the GPS callback always sees the latest values without restarting the watch
-  const selectedTrailRef = useRef<TrailMarker | null>(null);
   const isFollowingRef = useRef(true);
 
-  // React instantly when ExplorerScreen unlocks a trail — add marker without reload
+  // When Explorer unlocks a trail, add its marker without a full reload
   useEffect(() => {
     const sub = onTrailUnlocked(({ trailId, hiddenPoint }) => {
       setTrails(prev => {
@@ -285,6 +208,19 @@ export default function MapScreen() {
             : t,
         );
       });
+    });
+    return () => sub.remove();
+  }, []);
+
+  // When AppNavigator completes a trail, update the marker and close the info sheet
+  useEffect(() => {
+    const sub = onTrailCompleted(({ trailId }) => {
+      setTrails(prev =>
+        prev.map(t =>
+          t.id === trailId ? { ...t, user_trail_status: 'completed' } : t,
+        ),
+      );
+      setSelectedTrail(prev => (prev?.id === trailId ? null : prev));
     });
     return () => sub.remove();
   }, []);
@@ -368,60 +304,29 @@ export default function MapScreen() {
   );
 
   // Keep refs in sync so GPS callback always reads latest without restarting the watch
-  useEffect(() => { selectedTrailRef.current = selectedTrail; }, [selectedTrail]);
   useEffect(() => { isFollowingRef.current = isFollowing; }, [isFollowing]);
 
-  // --- Watch GPS ---
-  // Empty deps: watch starts on focus and stops on blur — never restarts mid-session
-  // because selectedTrail/isFollowing changed. Refs provide fresh values instead.
-  useFocusEffect(
-    useCallback(() => {
-      watchId.current = Geolocation.watchPosition(
-        pos => {
-          const coords = {
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-          };
-          setUserCoords(coords);
+  // --- Receive GPS from AppNavigator's single global watch ---
+  // AppNavigator owns the one watchPosition; it broadcasts via gps:update event.
+  // On mount, immediately apply any position already received (screen may mount
+  // after AppNavigator's first GPS tick, causing it to miss that event).
+  useEffect(() => {
+    const applyCoords = (coords: { latitude: number; longitude: number }) => {
+      setUserCoords(coords);
+      if (isFollowingRef.current) {
+        cameraRef.current?.setCamera({
+          centerCoordinate: [coords.longitude, coords.latitude],
+          animationDuration: 500,
+        });
+      }
+    };
 
-          if (isFollowingRef.current) {
-            cameraRef.current?.setCamera({
-              centerCoordinate: [coords.longitude, coords.latitude],
-              animationDuration: 500,
-            });
-          }
+    const last = getLastGpsPosition();
+    if (last) applyCoords(last);
 
-          // Auto-complete check — only for the trail the user has selected
-          const active = selectedTrailRef.current;
-          if (
-            active &&
-            active.user_trail_status === 'unlocked' &&
-            active.hidden_point &&
-            !completedIds.current.has(active.id)
-          ) {
-            const dist = haversineDistance(coords, {
-              latitude: active.hidden_point.latitude,
-              longitude: active.hidden_point.longitude,
-            });
-
-            if (dist <= active.distance_tolerance) {
-              completedIds.current.add(active.id);
-              handleCompleteTrail(active, coords);
-            }
-          }
-        },
-        err => console.warn('[MapScreen] GPS error:', err),
-        { enableHighAccuracy: true, distanceFilter: 5 },
-      );
-
-      return () => {
-        if (watchId.current !== null) {
-          Geolocation.clearWatch(watchId.current);
-          watchId.current = null;
-        }
-      };
-    }, []),
-  );
+    const sub = onGpsUpdate(applyCoords);
+    return () => sub.remove();
+  }, []);
 
   // --- Center on focused trail from Explorer ---
   // useFocusEffect re-runs every time the screen gains focus, so tapping
@@ -445,52 +350,6 @@ export default function MapScreen() {
     }, [focusedTrailId, trails]),
   );
 
-  // --- Complete trail ---
-  const handleCompleteTrail = async (trail: TrailMarker, coords: Coords) => {
-    if (!userId) return;
-
-    // Mark locally immediately so UI updates
-    setTrails(prev =>
-      prev.map(t => t.id === trail.id ? { ...t, user_trail_status: 'completed' } : t),
-    );
-    setSelectedTrail(null);
-    setCompletedTrail(trail);
-    updateTrailStatusInCache(trail.id, 'completed').catch(() => {});
-
-    // Notify other screens (e.g. ExplorerScreen) so they update without a reload
-    emitTrailCompleted({
-      trailId: trail.id,
-      keysAwarded: trail.hidden_point?.keys_awarded ?? 0,
-    });
-
-    try {
-      const { error } = await supabase.rpc('complete_trail', {
-        v_p_user_id: userId,
-        v_p_trail_id: trail.id,
-        v_p_user_lat: coords.latitude,
-        v_p_user_lon: coords.longitude,
-      });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      // Success — clean up cache and offline map tiles
-      removeTrailFromCache(trail.id).catch(() => {});
-      deleteOfflinePack(trail.id).catch(() => {});
-    } catch (err) {
-      console.warn('[MapScreen] Sync failed, queuing offline:', err);
-      // Backend error or Network error — queue for later sync
-      await addToCompletionQueue({
-        trailId: trail.id,
-        userId,
-        userLat: coords.latitude,
-        userLon: coords.longitude,
-        queuedAt: Date.now(),
-      });
-    }
-  };
-
   // --- Recenter ---
   const handleRecenter = () => {
     if (!userCoords) return;
@@ -502,9 +361,11 @@ export default function MapScreen() {
     });
   };
 
-  const defaultCenter: [number, number] = userCoords
-    ? [userCoords.longitude, userCoords.latitude]
-    : [-104.9903, 39.7392]; // Denver fallback
+  // Use last known GPS position so the initial render never shows Denver
+  const initialCoords = userCoords ?? getLastGpsPosition();
+  const defaultCenter: [number, number] = initialCoords
+    ? [initialCoords.longitude, initialCoords.latitude]
+    : [-104.9903, 39.7392]; // last-resort fallback
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -594,12 +455,6 @@ export default function MapScreen() {
         />
       )}
 
-      {/* Trail completed modal */}
-      <TrailCompletedModal
-        trail={completedTrail}
-        visible={!!completedTrail}
-        onClose={() => setCompletedTrail(null)}
-      />
     </SafeAreaView>
   );
 }
@@ -748,59 +603,4 @@ const styles = StyleSheet.create({
     padding: 4,
   },
 
-  // Completed modal
-  completedOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  completedSheet: {
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    padding: 32,
-    alignItems: 'center',
-    width: '100%',
-  },
-  completedIconWrap: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: '#F0FDF4',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  completedTitle: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 24,
-    color: '#16A34A',
-    marginBottom: 8,
-  },
-  completedSubtitle: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 14,
-    color: '#687076',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  completedRewards: { gap: 12, marginBottom: 28, alignItems: 'center' },
-  completedRewardRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  completedRewardText: {
-    fontFamily: Fonts.firaSansBold,
-    fontSize: 15,
-    color: Colors.blueGrey,
-  },
-  completedBtn: {
-    backgroundColor: Colors.orange,
-    paddingHorizontal: 48,
-    paddingVertical: 14,
-    borderRadius: 12,
-  },
-  completedBtnText: {
-    fontFamily: Fonts.firaSansBold,
-    fontSize: 15,
-    color: '#fff',
-  },
 });
