@@ -38,7 +38,7 @@ import { emitTrailUnlocked, onTrailCompleted } from '../../lib/trailEvents';
 const PAGE_SIZE = 20;
 const STORAGE_BASE = `${Config.SUPABASE_URL}/storage/v1/object/public/trails_images/`;
 const DISTANCE_OPTIONS = [50, 100, 150, 200, 250, 300, 350, 400];
-const STATUS_OPTIONS = ['All', 'locked', 'unlocked', 'completed'] as const;
+const STATUS_OPTIONS = ['All', 'locked', 'unlocked'] as const;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -77,6 +77,7 @@ type Trail = {
 
 type Variant = { id: string; name: string; color: string };
 type BaseVariant = { id: string; name: string };
+type CityVariant = { id: string; name: string; latitude: number | null; longitude: number | null };
 
 type Quest = {
   id: string;
@@ -98,6 +99,8 @@ type Variants = {
 type Filters = {
   stateId: string | null;
   cityId: string | null;
+  cityLat: number | null;
+  cityLon: number | null;
   difficultyId: string | null;
   trailTypeId: string | null;
   status: string | null;
@@ -107,6 +110,8 @@ type Filters = {
 const DEFAULT_FILTERS: Filters = {
   stateId: null,
   cityId: null,
+  cityLat: null,
+  cityLon: null,
   difficultyId: null,
   trailTypeId: null,
   status: null,
@@ -672,37 +677,28 @@ function TrailCard({
       <View style={styles.cardDivider} />
 
       <View style={styles.cardFooter}>
-        {trail.user_trail_status === 'completed' && (
-          <TouchableOpacity style={[styles.footerBtn, styles.footerBtnPrimary]} onPress={() => onViewOnMap(trail.id)}>
-            <Icon name="location-outline" size={15} color="#fff" />
-            <Text style={styles.footerBtnText}>View on Map</Text>
-          </TouchableOpacity>
-        )}
-
         {trail.user_trail_status === 'unlocked' && (
           <TouchableOpacity style={[styles.footerBtn, styles.footerBtnPrimary]} onPress={() => onViewOnMap(trail.id)}>
             <Icon name="location-outline" size={15} color="#fff" />
-            <Text style={styles.footerBtnText}>Verify Location</Text>
+            <Text style={styles.footerBtnText}>Verify</Text>
           </TouchableOpacity>
         )}
 
-        {isLocked && canUnlock && isUserParticipant && (
-          <TouchableOpacity style={[styles.footerBtn, styles.footerBtnUnlock]} onPress={() => onUnlock(trail)}>
-            <Icon name="key-outline" size={15} color="#fff" />
-            <Text style={styles.footerBtnText}>
-              Unlock Trail ({trail.keys_to_unlock} Key{trail.keys_to_unlock > 1 ? 's' : ''})
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {isLocked && canUnlock && !isUserParticipant && (
+        {isLocked && !isUserParticipant && (
           <TouchableOpacity style={[styles.footerBtn, styles.footerBtnUnlock]} onPress={onJoinQuest}>
             <Icon name="ticket-outline" size={15} color="#fff" />
-            <Text style={styles.footerBtnText}>Join a Quest</Text>
+            <Text style={styles.footerBtnText}>Join Quest</Text>
           </TouchableOpacity>
         )}
 
-        {isLocked && !canUnlock && (
+        {isLocked && isUserParticipant && canUnlock && (
+          <TouchableOpacity style={[styles.footerBtn, styles.footerBtnUnlock]} onPress={() => onUnlock(trail)}>
+            <Icon name="key-outline" size={15} color="#fff" />
+            <Text style={styles.footerBtnText}>Unlock</Text>
+          </TouchableOpacity>
+        )}
+
+        {isLocked && isUserParticipant && !canUnlock && (
           <TouchableOpacity style={[styles.footerBtn, styles.footerBtnOutline]} onPress={onJoinQuest}>
             <Icon name="add-circle-outline" size={15} color={Colors.blueGrey} />
             <Text style={styles.footerBtnOutlineText}>Buy More Keys</Text>
@@ -728,7 +724,7 @@ function FilterModal({
 }: {
   visible: boolean;
   variants: Variants;
-  cities: BaseVariant[];
+  cities: CityVariant[];
   filters: Filters;
   onApply: (f: Filters) => void;
   onClose: () => void;
@@ -744,7 +740,15 @@ function FilterModal({
   const handleStateSelect = (id: string | null) => {
     set('stateId', id);
     set('cityId', null);
+    set('cityLat', null);
+    set('cityLon', null);
     onStateChange(id);
+  };
+
+  const handleCitySelect = (city: CityVariant | null) => {
+    set('cityId', city?.id ?? null);
+    set('cityLat', city?.latitude ?? null);
+    set('cityLon', city?.longitude ?? null);
   };
 
   const handleReset = () => {
@@ -795,7 +799,7 @@ function FilterModal({
               <View style={styles.filterChipRow}>
                 <TouchableOpacity
                   style={[styles.filterChip, !local.cityId && styles.filterChipActive]}
-                  onPress={() => set('cityId', null)}
+                  onPress={() => handleCitySelect(null)}
                   disabled={!local.stateId}
                 >
                   <Text style={[styles.filterChipText, !local.cityId && styles.filterChipActive && styles.filterChipTextActive]}>Any</Text>
@@ -804,7 +808,7 @@ function FilterModal({
                   <TouchableOpacity
                     key={c.id}
                     style={[styles.filterChip, local.cityId === c.id && styles.filterChipActive]}
-                    onPress={() => set('cityId', c.id)}
+                    onPress={() => handleCitySelect(c)}
                     disabled={!local.stateId}
                   >
                     <Text style={[styles.filterChipText, local.cityId === c.id && styles.filterChipTextActive]}>{c.name}</Text>
@@ -923,7 +927,7 @@ function FilterModal({
 export default function ExplorerScreen() {
   const [trails, setTrails] = useState<Trail[]>([]);
   const [variants, setVariants] = useState<Variants>({ trail_types: [], difficulty_levels: [], states: [] });
-  const [cities, setCities] = useState<BaseVariant[]>([]);
+  const [cities, setCities] = useState<CityVariant[]>([]);
   const [userKeys, setUserKeys] = useState(0);
   const [userId, setUserId] = useState<string | null>(null);
   const [userLat, setUserLat] = useState<number | null>(null);
@@ -1053,10 +1057,13 @@ export default function ExplorerScreen() {
   // --- Fetch trails ---
   const loadPage = useCallback(async (pageNum: number, f: Filters, lat: number, lon: number, uid: string) => {
     setLoadingTrails(true);
+    // When a city is selected, use that city's coordinates as the distance reference point
+    const refLat = f.cityLat ?? lat;
+    const refLon = f.cityLon ?? lon;
     try {
       const { data, error } = await supabase.rpc('get_trails_nearby_paginated', {
-        user_lat: lat,
-        user_lon: lon,
+        user_lat: refLat,
+        user_lon: refLon,
         user_id: uid,
         max_distance_meters: f.distanceMeters,
         filter_state: f.stateId,
@@ -1085,6 +1092,17 @@ export default function ExplorerScreen() {
         apiTrails = apiTrails.filter(t => !(locallyCompleted.has(t.id) && t.user_trail_status !== 'completed'));
       }
 
+      // Remove server-completed trails — completed trails are never shown in Explorer
+      apiTrails = apiTrails.filter(t => t.user_trail_status !== 'completed');
+
+      // Sort: unlocked first (closest→furthest), then locked (closest→furthest)
+      apiTrails.sort((a, b) => {
+        const order = (s: TrailStatus) => (s === 'unlocked' ? 0 : 1);
+        const diff = order(a.user_trail_status) - order(b.user_trail_status);
+        if (diff !== 0) return diff;
+        return (a.distance_meters ?? 0) - (b.distance_meters ?? 0);
+      });
+
       const countAfterFilter = apiTrails.length;
       const removedThisPage = countBeforeFilter - countAfterFilter;
 
@@ -1101,12 +1119,10 @@ export default function ExplorerScreen() {
       console.warn('[ExplorerScreen] offline — falling back to cache');
       if (pageNum === 0) {
         const cached = await getCachedTrails();
-        // Respect the active status filter; default (null) matches RPC which excludes completed
-        const filtered = f.status === 'completed'
-          ? cached.filter(t => t.user_trail_status === 'completed')
-          : f.status === 'unlocked'
-            ? cached.filter(t => t.user_trail_status === 'unlocked')
-            : cached.filter(t => t.user_trail_status === 'unlocked'); // default: unlocked only
+        // Completed trails are excluded from Explorer entirely
+        const filtered = f.status === 'unlocked'
+          ? cached.filter(t => t.user_trail_status === 'unlocked')
+          : cached.filter(t => t.user_trail_status === 'unlocked' || t.user_trail_status === 'locked');
         if (filtered.length > 0) {
           const asTrails: Trail[] = filtered.map(t => ({
             id: t.id,
@@ -1185,7 +1201,7 @@ export default function ExplorerScreen() {
     if (!stateId) return;
     try {
       const { data } = await supabase.rpc('get_all_cities_by_state', { state_id_arg: stateId });
-      setCities((data as BaseVariant[]) ?? []);
+      setCities((data as CityVariant[]) ?? []);
     } catch { /* ignore */ }
   }, []);
 
