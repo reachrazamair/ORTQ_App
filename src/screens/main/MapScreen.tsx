@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Mapbox from '@rnmapbox/maps';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Config from 'react-native-config';
-import { useFocusEffect, useRoute, RouteProp } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 import { supabase } from '../../lib/supabase';
@@ -182,6 +182,7 @@ type MapRouteParams = { trailId?: string };
 
 export default function MapScreen() {
   const route = useRoute<RouteProp<{ Map: MapRouteParams }, 'Map'>>();
+  const navigation = useNavigation<any>();
   const focusedTrailId = route.params?.trailId ?? null;
 
   const cameraRef = useRef<Mapbox.Camera>(null);
@@ -353,6 +354,8 @@ export default function MapScreen() {
       if (!trail?.hidden_point) return;
       setIsFollowing(false);
       setSelectedTrail(trail);
+      // Clear the param immediately so returning to this screen later doesn't re-center
+      navigation.setParams({ trailId: undefined });
       // Delay so the tab transition finishes before Mapbox accepts setCamera
       const timer = setTimeout(() => {
         cameraRef.current?.setCamera({
@@ -362,7 +365,7 @@ export default function MapScreen() {
         });
       }, 350);
       return () => clearTimeout(timer);
-    }, [focusedTrailId, trails]),
+    }, [focusedTrailId, trails, navigation]),
   );
 
   // --- Recenter ---
