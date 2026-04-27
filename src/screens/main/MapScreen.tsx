@@ -190,7 +190,7 @@ export default function MapScreen() {
   const [trails, setTrails] = useState<TrailMarker[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [selectedTrail, setSelectedTrail] = useState<TrailMarker | null>(null);
-  const [isFollowing, setIsFollowing] = useState(true);
+  const [isFollowing, setIsFollowing] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const completedIds = useRef<Set<string>>(new Set());
@@ -376,11 +376,15 @@ export default function MapScreen() {
     });
   };
 
-  // Use last known GPS position so the initial render never shows Denver
-  const initialCoords = userCoords ?? getLastGpsPosition();
-  const defaultCenter: [number, number] = initialCoords
-    ? [initialCoords.longitude, initialCoords.latitude]
-    : [-104.9903, 39.7392]; // last-resort fallback
+  // Capture initial center once at mount — never recomputed so GPS updates
+  // don't reset the camera zoom/position the user has set.
+  const initialCenterRef = useRef<[number, number] | null>(null);
+  if (initialCenterRef.current === null) {
+    const coords = getLastGpsPosition();
+    initialCenterRef.current = coords
+      ? [coords.longitude, coords.latitude]
+      : [-104.9903, 39.7392];
+  }
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -405,8 +409,10 @@ export default function MapScreen() {
         >
           <Mapbox.Camera
             ref={cameraRef}
-            centerCoordinate={defaultCenter}
-            zoomLevel={12}
+            defaultSettings={{
+              centerCoordinate: initialCenterRef.current,
+              zoomLevel: 12,
+            }}
           />
 
           {/* User location */}
