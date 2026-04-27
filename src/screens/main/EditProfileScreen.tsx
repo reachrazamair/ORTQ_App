@@ -6,7 +6,9 @@ import {
   FlatList,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Modal,
+  PermissionsAndroid,
   Platform,
   ScrollView,
   StyleSheet,
@@ -260,14 +262,49 @@ export default function EditProfileScreen({ navigation }: Props) {
       else setBackgroundUri(uri);
     };
 
+    const handleCameraPermissionDenied = () => {
+      Alert.alert(
+        'Camera Permission Required',
+        'Please allow camera access in your device settings to take photos.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Open Settings', onPress: () => Linking.openSettings() },
+        ],
+      );
+    };
+
+    const takePhoto = async () => {
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+          {
+            title: 'Camera Permission',
+            message: 'This app needs camera access to take photos.',
+            buttonPositive: 'Allow',
+            buttonNegative: 'Deny',
+          },
+        );
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          handleCameraPermissionDenied();
+          return;
+        }
+      }
+
+      launchCamera(options, res => {
+        if (res.errorCode === 'permission') {
+          handleCameraPermissionDenied();
+        } else if (!res.didCancel && res.assets?.[0]?.uri) {
+          onPicked(res.assets[0].uri!);
+        }
+      });
+    };
+
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         { options: ['Cancel', 'Take Photo', 'Choose from Library'], cancelButtonIndex: 0 },
         buttonIndex => {
           if (buttonIndex === 1) {
-            launchCamera(options, res => {
-              if (!res.didCancel && res.assets?.[0]?.uri) onPicked(res.assets[0].uri!);
-            });
+            takePhoto();
           } else if (buttonIndex === 2) {
             launchImageLibrary(options, res => {
               if (!res.didCancel && res.assets?.[0]?.uri) onPicked(res.assets[0].uri!);
@@ -278,13 +315,7 @@ export default function EditProfileScreen({ navigation }: Props) {
     } else {
       Alert.alert('Photo', 'Choose an option', [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Take Photo',
-          onPress: () =>
-            launchCamera(options, res => {
-              if (!res.didCancel && res.assets?.[0]?.uri) onPicked(res.assets[0].uri!);
-            }),
-        },
+        { text: 'Take Photo', onPress: takePhoto },
         {
           text: 'Choose from Library',
           onPress: () =>
