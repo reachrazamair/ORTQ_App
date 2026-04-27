@@ -354,15 +354,16 @@ export default function MapScreen() {
       if (!trail?.hidden_point) return;
       setIsFollowing(false);
       setSelectedTrail(trail);
-      // Clear the param immediately so returning to this screen later doesn't re-center
-      navigation.setParams({ trailId: undefined });
-      // Delay so the tab transition finishes before Mapbox accepts setCamera
+      // Delay so the tab transition finishes before Mapbox accepts setCamera.
+      // Clear the param inside the timeout — clearing it before causes useCallback
+      // deps to change, which re-runs useFocusEffect cleanup and cancels this timer.
       const timer = setTimeout(() => {
         cameraRef.current?.setCamera({
           centerCoordinate: [trail.hidden_point!.longitude, trail.hidden_point!.latitude],
           zoomLevel: 15,
           animationDuration: 800,
         });
+        navigation.setParams({ trailId: undefined });
       }, 350);
       return () => clearTimeout(timer);
     }, [focusedTrailId, trails, navigation]),
