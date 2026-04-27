@@ -20,6 +20,9 @@ export type TrailCompletedPayload = {
 export type TrailUnlockedPayload = {
   trailId: string;
   trailName: string;
+  city: string;
+  state: string;
+  difficulty: string;
   distanceTolerance: number;
   hiddenPoint: {
     id?: string;

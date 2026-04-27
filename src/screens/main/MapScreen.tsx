@@ -198,10 +198,25 @@ export default function MapScreen() {
 
   // When Explorer unlocks a trail, add its marker without a full reload
   useEffect(() => {
-    const sub = onTrailUnlocked(({ trailId, hiddenPoint }) => {
+    const sub = onTrailUnlocked(({ trailId, trailName, city, state, difficulty, distanceTolerance, hiddenPoint }) => {
       setTrails(prev => {
         const existing = prev.find(t => t.id === trailId);
-        if (!existing) return prev;
+        if (!existing) {
+          // Trail was locked and not in map state — add it now
+          return [
+            ...prev,
+            {
+              id: trailId,
+              name: trailName,
+              city,
+              state,
+              difficulty,
+              distance_tolerance: distanceTolerance,
+              user_trail_status: 'unlocked' as TrailStatus,
+              hidden_point: hiddenPoint as any,
+            },
+          ];
+        }
         return prev.map(t =>
           t.id === trailId
             ? { ...t, user_trail_status: 'unlocked', hidden_point: hiddenPoint as any }
