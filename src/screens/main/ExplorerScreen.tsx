@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   FlatList,
   Image,
   Linking,
@@ -953,6 +954,10 @@ export default function ExplorerScreen() {
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
   const profileCoordsRef = useRef<{ lat: number; lon: number } | null>(null);
+  const userLatRef = useRef<number | null>(null);
+  const userLonRef = useRef<number | null>(null);
+  userLatRef.current = userLat;
+  userLonRef.current = userLon;
 
   const hasMore = trails.length < (totalCount - localFilteredCount) && !loadingTrails;
 
@@ -1007,52 +1012,68 @@ export default function ExplorerScreen() {
   }, []);
 
   // --- Location ---
+  const getLocation = useCallback((cancelled?: { value: boolean }) => {
+    return new Promise<void>(async resolve => {
+      if (Platform.OS === 'android') {
+        const ok = await requestAndroidLocationPermission();
+        if (!ok) { setLoadingLocation(false); resolve(); return; }
+      }
+
+      Geolocation.getCurrentPosition(
+        pos => {
+          if (cancelled?.value) { resolve(); return; }
+          const newLat = pos.coords.latitude;
+          const newLon = pos.coords.longitude;
+          const dist = userLatRef.current !== null && userLonRef.current !== null
+            ? haversineDistance(userLatRef.current, userLonRef.current, newLat, newLon)
+            : 999;
+          if (dist > 5) {
+            userLatRef.current = newLat;
+            userLonRef.current = newLon;
+            setUserLat(newLat);
+            setUserLon(newLon);
+            setHasLocation(true);
+          }
+          setLoadingLocation(false);
+          resolve();
+        },
+        () => {
+          if (cancelled?.value) { resolve(); return; }
+          const fallback = profileCoordsRef.current;
+          if (fallback && (userLatRef.current === null || userLonRef.current === null)) {
+            userLatRef.current = fallback.lat;
+            userLonRef.current = fallback.lon;
+            setUserLat(fallback.lat);
+            setUserLon(fallback.lon);
+            setHasLocation(true);
+          }
+          setLoadingLocation(false);
+          resolve();
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+      );
+    });
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
-      let cancelled = false;
-
-      const getLocation = async () => {
-        if (Platform.OS === 'android') {
-          const ok = await requestAndroidLocationPermission();
-          if (!ok) { setLoadingLocation(false); return; }
-        }
-
-        Geolocation.getCurrentPosition(
-          pos => {
-            if (cancelled) return;
-            const newLat = pos.coords.latitude;
-            const newLon = pos.coords.longitude;
-
-            // Only update if location changed significantly (> approx 5m) to prevent drift loops
-            const dist = userLat !== null && userLon !== null
-              ? haversineDistance(userLat, userLon, newLat, newLon)
-              : 999;
-
-            if (dist > 5) {
-              setUserLat(newLat);
-              setUserLon(newLon);
-              setHasLocation(true);
-            }
-            setLoadingLocation(false);
-          },
-          () => {
-            if (cancelled) return;
-            const fallback = profileCoordsRef.current;
-            if (fallback && (userLat === null || userLon === null)) {
-              setUserLat(fallback.lat);
-              setUserLon(fallback.lon);
-              setHasLocation(true);
-            }
-            setLoadingLocation(false);
-          },
-          { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
-        );
-      };
-
-      getLocation();
-      return () => { cancelled = true; };
-    }, []),
+      const cancelled = { value: false };
+      getLocation(cancelled);
+      return () => { cancelled.value = true; };
+    }, [getLocation]),
   );
+
+  // Re-check location automatically when app returns to foreground
+  // (e.g. user toggled location in Settings and switched back)
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', nextState => {
+      if (nextState === 'active' && !hasLocation) {
+        setLoadingLocation(true);
+        getLocation();
+      }
+    });
+    return () => sub.remove();
+  }, [hasLocation, getLocation]);
 
   // --- Fetch trails ---
   const loadPage = useCallback(async (pageNum: number, f: Filters, lat: number, lon: number, uid: string) => {
@@ -1206,15 +1227,24 @@ export default function ExplorerScreen() {
   }, []);
 
   const handleRefresh = useCallback(async () => {
-    if (!userId || userLat === null || userLon === null) return;
+    if (!userId) return;
     setRefreshing(true);
-    await loadPage(0, filtersRef.current, userLat, userLon, userId);
-    try {
-      const p = await getProfile(userId);
-      if (p) setUserKeys(p.keys ?? 0);
-    } catch {}
+    // If location was never obtained, try again before loading trails
+    if (userLatRef.current === null || userLonRef.current === null) {
+      await getLocation();
+    }
+    // Read latest coords from refs (state may not have flushed yet)
+    const lat = userLatRef.current;
+    const lon = userLonRef.current;
+    if (lat !== null && lon !== null) {
+      await loadPage(0, filtersRef.current, lat, lon, userId);
+      try {
+        const p = await getProfile(userId);
+        if (p) setUserKeys(p.keys ?? 0);
+      } catch {}
+    }
     setRefreshing(false);
-  }, [userId, userLat, userLon, loadPage]);
+  }, [userId, loadPage, getLocation]);
 
   const handleLoadMore = useCallback(() => {
     if (hasMore && userId && userLat !== null && userLon !== null) {
