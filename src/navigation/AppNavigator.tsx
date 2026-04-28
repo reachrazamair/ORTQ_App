@@ -278,13 +278,20 @@ export default function AppNavigator() {
       startWatch();
     }
 
-    // On Android, also start watch when app resumes and permission was just granted
-    // (ExplorerScreen owns the permission request UI — we just react to the result)
+    // On Android, restart the watch when app resumes — handles two cases:
+    // 1. Permission was just granted (watch was never started)
+    // 2. GPS was just enabled (watch was running but stuck in error state)
     const appStateSub = Platform.OS === 'android'
       ? AppState.addEventListener('change', nextState => {
-          if (nextState === 'active' && watchIdRef.current === null) {
+          if (nextState === 'active') {
             hasAndroidLocationPermission().then(granted => {
-              if (granted) startWatch();
+              if (!granted) return;
+              // Clear stale watch (may be stuck if GPS was off) and restart fresh
+              if (watchIdRef.current !== null) {
+                Geolocation.clearWatch(watchIdRef.current);
+                watchIdRef.current = null;
+              }
+              startWatch();
             });
           }
         })
