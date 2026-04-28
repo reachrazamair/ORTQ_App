@@ -182,15 +182,33 @@ function getDifficultyColor(name: string, variants: Variants): string {
 
 async function requestAndroidLocationPermission(): Promise<boolean> {
   try {
+    // If already granted, skip everything
+    const already = await PermissionsAndroid.check(
+      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+    );
+    if (already) return true;
+
+    // Show our own dialog so we control each button independently.
+    // PermissionsAndroid.request() with a rationale always opens the system
+    // dialog regardless of which button the user taps — we avoid that here.
+    const userChoice = await new Promise<'ok' | 'cancel' | 'later'>(resolve => {
+      Alert.alert(
+        'Location Permission',
+        'ORTQ needs your location to show nearby trails.',
+        [
+          { text: 'Cancel', style: 'cancel', onPress: () => resolve('cancel') },
+          { text: 'Ask Me Later', onPress: () => resolve('later') },
+          { text: 'OK', onPress: () => resolve('ok') },
+        ],
+        { cancelable: true, onDismiss: () => resolve('cancel') },
+      );
+    });
+
+    if (userChoice !== 'ok') return false;
+
+    // User tapped OK — show only the native system dialog (no rationale)
     const granted = await PermissionsAndroid.request(
       PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-      {
-        title: 'Location Permission',
-        message: 'ORTQ needs your location to show nearby trails.',
-        buttonNeutral: 'Ask Me Later',
-        buttonNegative: 'Cancel',
-        buttonPositive: 'OK',
-      },
     );
     return granted === PermissionsAndroid.RESULTS.GRANTED;
   } catch {

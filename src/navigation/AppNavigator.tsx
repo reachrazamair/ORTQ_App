@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  AppState,
   Modal,
   PermissionsAndroid,
   Platform,
@@ -78,19 +79,12 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-async function requestAndroidLocationPermission(): Promise<boolean> {
+// Only checks — never requests. ExplorerScreen owns the permission request UI.
+async function hasAndroidLocationPermission(): Promise<boolean> {
   try {
-    const granted = await PermissionsAndroid.request(
+    return await PermissionsAndroid.check(
       PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-      {
-        title: 'Location Permission',
-        message: 'ORTQ needs your location to verify trail checkpoints.',
-        buttonNeutral: 'Ask Me Later',
-        buttonNegative: 'Cancel',
-        buttonPositive: 'OK',
-      },
     );
-    return granted === PermissionsAndroid.RESULTS.GRANTED;
   } catch {
     return false;
   }
@@ -277,14 +271,27 @@ export default function AppNavigator() {
     };
 
     if (Platform.OS === 'android') {
-      requestAndroidLocationPermission().then(granted => {
+      hasAndroidLocationPermission().then(granted => {
         if (granted) startWatch();
       });
     } else {
       startWatch();
     }
 
+    // On Android, also start watch when app resumes and permission was just granted
+    // (ExplorerScreen owns the permission request UI — we just react to the result)
+    const appStateSub = Platform.OS === 'android'
+      ? AppState.addEventListener('change', nextState => {
+          if (nextState === 'active' && watchIdRef.current === null) {
+            hasAndroidLocationPermission().then(granted => {
+              if (granted) startWatch();
+            });
+          }
+        })
+      : null;
+
     return () => {
+      appStateSub?.remove();
       if (watchIdRef.current !== null) {
         Geolocation.clearWatch(watchIdRef.current);
         watchIdRef.current = null;
