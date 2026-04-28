@@ -20,6 +20,7 @@ import {
   View,
 } from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
+import { promptForEnableLocationIfNeeded } from 'react-native-android-location-enabler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -958,6 +959,7 @@ export default function ExplorerScreen() {
   const [showJoinQuest, setShowJoinQuest] = useState(false);
   const [hasLocation, setHasLocation] = useState(false);
   const [loadingLocation, setLoadingLocation] = useState(true);
+  const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
   const [loadingTrails, setLoadingTrails] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
@@ -976,6 +978,7 @@ export default function ExplorerScreen() {
   const userLonRef = useRef<number | null>(null);
   userLatRef.current = userLat;
   userLonRef.current = userLon;
+  const gpsDismissedRef = useRef(false);
 
   const hasMore = trails.length < (totalCount - localFilteredCount) && !loadingTrails;
 
@@ -1034,7 +1037,13 @@ export default function ExplorerScreen() {
     return new Promise<void>(async resolve => {
       if (Platform.OS === 'android') {
         const ok = await requestAndroidLocationPermission();
-        if (!ok) { setLoadingLocation(false); resolve(); return; }
+        if (!ok) {
+          setLocationPermissionDenied(true);
+          setLoadingLocation(false);
+          resolve();
+          return;
+        }
+        setLocationPermissionDenied(false);
       }
 
       Geolocation.getCurrentPosition(
@@ -1055,8 +1064,42 @@ export default function ExplorerScreen() {
           setLoadingLocation(false);
           resolve();
         },
-        () => {
+        async (error: any) => {
           if (cancelled?.value) { resolve(); return; }
+
+          // GPS is off but permission is granted — show native Google dialog
+          if (Platform.OS === 'android' && error?.code === 2) {
+            if (!gpsDismissedRef.current) {
+              // Set true BEFORE showing dialog so AppState re-checks triggered
+              // while the dialog is open don't loop back into showing it again
+              gpsDismissedRef.current = true;
+              try {
+                const result = await promptForEnableLocationIfNeeded();
+                if (result === 'enabled' || result === 'already-enabled') {
+                  gpsDismissedRef.current = false;
+                  Geolocation.getCurrentPosition(
+                    pos => {
+                      userLatRef.current = pos.coords.latitude;
+                      userLonRef.current = pos.coords.longitude;
+                      setUserLat(pos.coords.latitude);
+                      setUserLon(pos.coords.longitude);
+                      setHasLocation(true);
+                      setLoadingLocation(false);
+                      resolve();
+                    },
+                    () => { setLoadingLocation(false); resolve(); },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+                  );
+                  return;
+                }
+              } catch {}
+            }
+            setLoadingLocation(false);
+            resolve();
+            return;
+          }
+
+          // For iOS or other errors, fall back to profile coords if available
           const fallback = profileCoordsRef.current;
           if (fallback && (userLatRef.current === null || userLonRef.current === null)) {
             userLatRef.current = fallback.lat;
@@ -1086,6 +1129,7 @@ export default function ExplorerScreen() {
   useEffect(() => {
     const sub = AppState.addEventListener('change', nextState => {
       if (nextState === 'active' && !hasLocation) {
+        setLocationPermissionDenied(false);
         setLoadingLocation(true);
         getLocation();
       }
@@ -1376,8 +1420,28 @@ export default function ExplorerScreen() {
         </TouchableOpacity>
       </View>
 
-      {!hasLocation && !loadingLocation && (
+      {!hasLocation && !loadingLocation && locationPermissionDenied && (
         <NoAccessLocation onSettings={() => Linking.openSettings()} />
+      )}
+
+      {!hasLocation && !loadingLocation && !locationPermissionDenied && (
+        <View style={styles.noLocationWrap}>
+          <Icon name="location-outline" size={48} color="#9AA0A6" />
+          <Text style={styles.noLocationTitle}>Location is off</Text>
+          <Text style={styles.noLocationBody}>
+            Turn on your device location to discover nearby trails.
+          </Text>
+          <TouchableOpacity
+            style={styles.noLocationBtn}
+            onPress={() => {
+              gpsDismissedRef.current = false;
+              setLoadingLocation(true);
+              getLocation();
+            }}
+          >
+            <Text style={styles.noLocationBtnText}>Turn On Location</Text>
+          </TouchableOpacity>
+        </View>
       )}
 
       {loadingLocation && (
