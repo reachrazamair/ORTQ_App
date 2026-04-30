@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { StatusBar, View, Text, StyleSheet } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { createNavigationContainerRef, NavigationContainer } from '@react-navigation/native';
+import { AppTabParamList } from './src/navigation/AppNavigator';
+
+export const navigationRef = createNavigationContainerRef<AppTabParamList>();
 import BootSplash from 'react-native-bootsplash';
 import {
   SafeAreaProvider,
@@ -54,7 +57,7 @@ function AppContent() {
 
   return (
     <>
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         <RootNavigator />
       </NavigationContainer>
       {isOffline && <OfflineToast />}

@@ -24,7 +24,7 @@ import {
   getCompletionQueue,
 } from '../lib/trailCache';
 import { deleteOfflinePack } from '../lib/offlineMap';
-import { emitTrailCompleted, emitGpsUpdate, onTrailUnlocked } from '../lib/trailEvents';
+import { emitTrailCompleted, emitGpsUpdate, onTrailUnlocked, onPaymentSuccess, onPaymentCancel, getPendingPaymentResult, clearPendingPaymentResult } from '../lib/trailEvents';
 import ProfileStack from './ProfileStack';
 import CommunityStack from './CommunityStack';
 import LeaderboardScreen from '../screens/main/LeaderboardScreen';
@@ -88,6 +88,47 @@ async function hasAndroidLocationPermission(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Payment Result Modal
+// ---------------------------------------------------------------------------
+
+function PaymentResultModal({
+  visible,
+  success,
+  onClose,
+}: {
+  visible: boolean;
+  success: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
+      <View style={styles.overlay}>
+        <View style={styles.sheet}>
+          <View style={[styles.iconWrap, { backgroundColor: success ? '#F0FDF4' : '#FFF7ED' }]}>
+            <Icon
+              name={success ? 'checkmark-circle' : 'close-circle'}
+              size={56}
+              color={success ? '#22C55E' : '#F97316'}
+            />
+          </View>
+          <Text style={[styles.title, { color: success ? '#16A34A' : '#EA580C' }]}>
+            {success ? 'Payment Successful!' : 'Payment Cancelled'}
+          </Text>
+          <Text style={styles.subtitle}>
+            {success
+              ? 'Thank you for your purchase. Your quest has been activated successfully.'
+              : 'Your payment was not completed. You can try again anytime.'}
+          </Text>
+          <TouchableOpacity style={styles.btn} onPress={onClose}>
+            <Text style={styles.btnText}>{success ? 'Start Exploring' : 'OK'}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -155,6 +196,7 @@ function CompletionModal({
 
 export default function AppNavigator() {
   const [completedInfo, setCompletedInfo] = useState<CompletedInfo | null>(null);
+  const [paymentResult, setPaymentResult] = useState<'success' | 'cancel' | null>(null);
 
   // Refs so GPS callback always sees latest values without restarting the watch
   const activeTrailsRef = useRef<VerifiableTrail[]>([]);
@@ -210,6 +252,23 @@ export default function AppNavigator() {
       } catch { /* use cache */ }
     };
     init();
+  }, []);
+
+  // --- Payment result deep link events ---
+  useEffect(() => {
+    // Handle case where deep link fired before this component mounted
+    const pending = getPendingPaymentResult();
+    if (pending) {
+      setPaymentResult(pending);
+      clearPendingPaymentResult();
+    }
+
+    const subSuccess = onPaymentSuccess(() => setPaymentResult('success'));
+    const subCancel = onPaymentCancel(() => setPaymentResult('cancel'));
+    return () => {
+      subSuccess.remove();
+      subCancel.remove();
+    };
   }, []);
 
   // --- When a trail is unlocked from Explorer, add it to the verification list ---
@@ -416,6 +475,12 @@ export default function AppNavigator() {
         info={completedInfo}
         visible={!!completedInfo}
         onClose={() => setCompletedInfo(null)}
+      />
+
+      <PaymentResultModal
+        visible={!!paymentResult}
+        success={paymentResult === 'success'}
+        onClose={() => setPaymentResult(null)}
       />
     </>
   );

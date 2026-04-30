@@ -3,6 +3,8 @@ import { ActivityIndicator, Linking, View } from 'react-native';
 import { Session } from '@supabase/supabase-js';
 import { Colors } from '../theme/colors';
 import { supabase } from '../lib/supabase';
+import { navigationRef } from '../../App';
+import { emitPaymentSuccess, emitPaymentCancel } from '../lib/trailEvents';
 import AuthNavigator from './AuthNavigator';
 import AppNavigator from './AppNavigator';
 import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
@@ -13,6 +15,22 @@ export default function RootNavigator() {
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   const handleDeepLink = async (url: string) => {
+    if (url.startsWith('ortq://payment/success')) {
+      emitPaymentSuccess();
+      if (navigationRef.isReady()) {
+        navigationRef.navigate('Explorer');
+      }
+      return;
+    }
+
+    if (url.startsWith('ortq://payment/cancel')) {
+      emitPaymentCancel();
+      if (navigationRef.isReady()) {
+        navigationRef.navigate('Explorer');
+      }
+      return;
+    }
+
     if (!url.startsWith('ortq://reset-password') && !url.startsWith('ortq://verify')) return;
 
     // Parse tokens from the URL fragment or query string

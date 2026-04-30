@@ -259,33 +259,121 @@ function CardRow({ icon, children }: { icon: string; children: React.ReactNode }
 // Join Quest Modal
 // ---------------------------------------------------------------------------
 
+type PromoResult = {
+  final_price: number;
+  original_price: number;
+  discount_type: string;
+  discount_value: number;
+  promo_code_id: string;
+};
+
 function JoinQuestModal({
   visible,
   quests,
+  userId,
   onClose,
 }: {
   visible: boolean;
   quests: Quest[];
+  userId: string | null;
   onClose: () => void;
 }) {
   const [selectedQuestId, setSelectedQuestId] = useState<string | null>(null);
   const [promoCode, setPromoCode] = useState('');
   const [promoError, setPromoError] = useState('');
+  const [promoResult, setPromoResult] = useState<PromoResult | null>(null);
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [paying, setPaying] = useState(false);
 
   const handleClose = () => {
     setSelectedQuestId(null);
     setPromoCode('');
     setPromoError('');
+    setPromoResult(null);
+    setPaying(false);
     onClose();
   };
 
-  const handleConfirmPurchase = () => {
-    if (!selectedQuestId) {
+  const handleSelectQuest = (id: string) => {
+    setSelectedQuestId(id);
+    setPromoCode('');
+    setPromoError('');
+    setPromoResult(null);
+  };
+
+  const handleApplyPromo = async () => {
+    if (!promoCode) { setPromoError('Promo code cannot be empty.'); return; }
+    if (!selectedQuestId) return;
+    setPromoLoading(true);
+    setPromoError('');
+    setPromoResult(null);
+    try {
+      const { data, error } = await supabase.rpc('check_promo_code_for_quest', {
+        input_code: promoCode,
+        quest_id: selectedQuestId,
+      });
+      if (error || !data) throw new Error(error?.message ?? 'Promo code cannot be used.');
+      setPromoResult(data as PromoResult);
+    } catch (err) {
+      setPromoError(err instanceof Error ? err.message : 'Promo code cannot be used.');
+    } finally {
+      setPromoLoading(false);
+    }
+  };
+
+  const handleConfirmPurchase = async () => {
+    if (!selectedQuestId || !userId) {
       Alert.alert('No Quest Selected', 'Please select a quest to join.');
       return;
     }
-    Alert.alert('Payment', 'Stripe payment integration coming soon.');
-    handleClose();
+    const quest = quests.find(q => q.id === selectedQuestId);
+    if (!quest) return;
+
+    setPaying(true);
+    try {
+      const price = promoResult ? promoResult.final_price : quest.price;
+      const unitAmount = Math.round(price * 100);
+
+      const enc = encodeURIComponent;
+      const parts = [
+        'submit_type=pay',
+        'mode=payment',
+        `line_items[0][price_data][currency]=usd`,
+        `line_items[0][price_data][product_data][name]=${enc(quest.title)}`,
+        `line_items[0][price_data][unit_amount]=${unitAmount}`,
+        `line_items[0][quantity]=1`,
+        `metadata[profileId]=${enc(userId)}`,
+        `metadata[questId]=${enc(quest.id)}`,
+        `metadata[quantity]=${quest.keys_provided}`,
+        `metadata[package_name]=${enc(quest.title)}`,
+        `success_url=${enc('ortq://payment/success?session_id={CHECKOUT_SESSION_ID}')}`,
+        `cancel_url=${enc('ortq://payment/cancel')}`,
+      ];
+      if (promoResult) {
+        parts.push(`metadata[promoCodeId]=${enc(promoResult.promo_code_id)}`);
+      }
+
+      const response = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${Config.STRIPE_SECRET_KEY}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: parts.join('&'),
+      });
+
+      const session = await response.json();
+      if (!response.ok) {
+        throw new Error(session?.error?.message ?? 'Failed to start checkout.');
+      }
+
+      await Linking.openURL(session.url);
+      handleClose();
+    } catch (err) {
+      Alert.alert('Error', err instanceof Error ? err.message : 'Payment failed. Please try again.');
+    } finally {
+      setPaying(false);
+    }
   };
 
   const formatDate = (iso: string) =>
@@ -318,7 +406,7 @@ function JoinQuestModal({
                 <TouchableOpacity
                   key={quest.id}
                   style={[styles.questCard, selectedQuestId === quest.id && styles.questCardSelected]}
-                  onPress={() => setSelectedQuestId(quest.id)}
+                  onPress={() => handleSelectQuest(quest.id)}
                   activeOpacity={0.8}
                 >
                   <View style={styles.questCardRadio}>
@@ -339,7 +427,16 @@ function JoinQuestModal({
                       <Icon name="key-outline" size={12} color="#9AA0A6" />
                       <Text style={styles.questMetaText}>{quest.keys_provided} Keys</Text>
                     </View>
-                    <Text style={styles.questPrice}>${quest.price}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                      <Text style={[styles.questPrice, selectedQuestId === quest.id && promoResult && styles.questPriceStrikethrough]}>
+                        ${quest.price}
+                      </Text>
+                      {selectedQuestId === quest.id && promoResult && (
+                        <Text style={styles.questPriceDiscounted}>
+                          ${promoResult.final_price.toFixed(2)}
+                        </Text>
+                      )}
+                    </View>
                   </View>
                 </TouchableOpacity>
               ))
@@ -352,34 +449,43 @@ function JoinQuestModal({
                   <TextInput
                     style={styles.promoInput}
                     value={promoCode}
-                    onChangeText={t => { setPromoCode(t.toUpperCase()); setPromoError(''); }}
+                    onChangeText={t => { setPromoCode(t.toUpperCase()); setPromoError(''); setPromoResult(null); }}
                     placeholder="Enter Promo Code"
                     placeholderTextColor="#9AA0A6"
                     autoCapitalize="characters"
                     maxLength={20}
+                    editable={!promoLoading}
                   />
-                  <TouchableOpacity style={styles.promoApplyBtn} onPress={() => {
-                    if (!promoCode) { setPromoError('Promo code cannot be empty.'); return; }
-                    Alert.alert('Promo Code', 'Promo code validation coming soon.');
-                  }}>
-                    <Text style={styles.promoApplyText}>Apply</Text>
+                  <TouchableOpacity style={styles.promoApplyBtn} onPress={handleApplyPromo} disabled={promoLoading}>
+                    {promoLoading
+                      ? <ActivityIndicator size="small" color={Colors.orange} />
+                      : <Text style={styles.promoApplyText}>Apply</Text>
+                    }
                   </TouchableOpacity>
                 </View>
+                {promoResult && (
+                  <Text style={styles.promoSuccess}>
+                    Promo applied! You save ${(promoResult.original_price - promoResult.final_price).toFixed(2)}
+                  </Text>
+                )}
                 {promoError ? <Text style={styles.promoError}>{promoError}</Text> : null}
               </View>
             )}
           </ScrollView>
 
           <View style={styles.filterActions}>
-            <TouchableOpacity style={styles.filterResetBtn} onPress={handleClose}>
+            <TouchableOpacity style={styles.filterResetBtn} onPress={handleClose} disabled={paying}>
               <Text style={styles.filterResetText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.filterApplyBtn, !selectedQuestId && { opacity: 0.5 }]}
+              style={[styles.filterApplyBtn, (!selectedQuestId || paying) && { opacity: 0.5 }]}
               onPress={handleConfirmPurchase}
-              disabled={!selectedQuestId}
+              disabled={!selectedQuestId || paying}
             >
-              <Text style={styles.filterApplyText}>Confirm & Pay</Text>
+              {paying
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Text style={styles.filterApplyText}>Confirm & Pay</Text>
+              }
             </TouchableOpacity>
           </View>
         </View>
@@ -1524,6 +1630,7 @@ export default function ExplorerScreen() {
       <JoinQuestModal
         visible={showJoinQuest}
         quests={activeQuests}
+        userId={userId}
         onClose={() => setShowJoinQuest(false)}
       />
     </SafeAreaView>
@@ -1846,4 +1953,7 @@ const styles = StyleSheet.create({
   promoApplyBtn: { paddingHorizontal: 14, paddingVertical: 10 },
   promoApplyText: { fontFamily: Fonts.firaSansBold, fontSize: 13, color: Colors.orange },
   promoError: { fontFamily: Fonts.firaSansRegular, fontSize: 12, color: '#EF4444', marginTop: 4 },
+  promoSuccess: { fontFamily: Fonts.firaSansRegular, fontSize: 12, color: '#22C55E', marginTop: 4 },
+  questPriceStrikethrough: { textDecorationLine: 'line-through', color: '#9AA0A6' },
+  questPriceDiscounted: { fontFamily: Fonts.gothamBold, fontSize: 16, color: '#EF4444' },
 });
