@@ -102,11 +102,7 @@ export default function SignupScreen({ navigation }: Props) {
     }
 
     setLoading(false);
-    Alert.alert(
-      'Success',
-      'Registration successful! Please check your email for a confirmation link.',
-      [{ text: 'OK', onPress: () => navigation.navigate('Login') }],
-    );
+    navigation.navigate('Login');
   };
 
   return (
