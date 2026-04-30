@@ -19,6 +19,7 @@ import { Fonts } from '../../theme/fonts';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { supabase } from '../../lib/supabase';
 import { getProfile } from '../../lib/profile';
+import { navigationRef } from '../../../App';
 import { loginSchema } from '../../utils/schemas';
 import CustomInput from '../../components/common/CustomInput';
 
@@ -89,6 +90,17 @@ export default function LoginScreen({ navigation }: Props) {
     }
 
     setLoading(false);
+
+    const isProfileIncomplete =
+      !profile.full_name ||
+      !profile.alias ||
+      !profile.city?.id ||
+      !profile.state?.id ||
+      !profile.address;
+
+    if (isProfileIncomplete && navigationRef.isReady()) {
+      navigationRef.navigate('Profile');
+    }
   };
 
   return (

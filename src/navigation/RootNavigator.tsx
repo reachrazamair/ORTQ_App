@@ -42,6 +42,9 @@ export default function RootNavigator() {
         access_token: params.access_token,
         refresh_token: params.refresh_token,
       });
+      if (params.type === 'recovery') {
+        setIsPasswordRecovery(true);
+      }
     }
   };
 
@@ -87,6 +90,9 @@ export default function RootNavigator() {
       <ResetPasswordScreen
         onSuccess={() => {
           setIsPasswordRecovery(false);
+          if (navigationRef.isReady()) {
+            navigationRef.navigate('Profile');
+          }
         }}
       />
     );
