@@ -8,16 +8,18 @@ import KeyUsageScreen from '../screens/main/KeyUsageScreen';
 import PurchaseHistoryScreen from '../screens/main/PurchaseHistoryScreen';
 import AccountSettingsScreen from '../screens/main/AccountSettingsScreen';
 import AppInfoScreen from '../screens/main/AppInfoScreen';
+import UpdateEmailScreen from '../screens/main/UpdateEmailScreen';
 
 export type ProfileStackParamList = {
   ProfileHome: undefined;
   EditProfile: undefined;
   ChangePassword: undefined;
+  UpdateEmail: undefined;
   ProfileDetails: undefined;
   KeyUsage: undefined;
   PurchaseHistory: undefined;
   AccountSettings: undefined;
-  AppInfo: { title: string };
+  AppInfo: undefined;
 };
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
@@ -28,6 +30,7 @@ export default function ProfileStack() {
       <Stack.Screen name="ProfileHome" component={ProfileScreen} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
       <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+      <Stack.Screen name="UpdateEmail" component={UpdateEmailScreen} />
       <Stack.Screen name="ProfileDetails" component={ProfileDetailsScreen} />
       <Stack.Screen name="KeyUsage" component={KeyUsageScreen} />
       <Stack.Screen name="PurchaseHistory" component={PurchaseHistoryScreen} />

@@ -1,139 +1,97 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import {
+  ActivityIndicator,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RouteProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import RenderHtml from 'react-native-render-html';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
+import { supabase } from '../../lib/supabase';
 import { ProfileStackParamList } from '../../navigation/ProfileStack';
 
 type Props = {
   navigation: NativeStackNavigationProp<ProfileStackParamList, 'AppInfo'>;
-  route: RouteProp<ProfileStackParamList, 'AppInfo'>;
 };
 
-type Section = {
-  heading?: string;
-  body: string;
-  bullets?: string[];
+type ContentPage = {
+  id: number;
+  title: string;
+  description: string | null;
+  updated_at: string;
 };
 
-const ABOUT_SECTIONS: Section[] = [
-  {
-    body: 'Off Road Treasure Quest (ORTQ) is an adventure platform built for off-road enthusiasts. Explore real trails, unlock hidden GPS checkpoints, earn points, and compete on leaderboards — all from your phone.',
-  },
-  {
-    heading: 'How It Works',
-    body: 'Each quest covers a set of off-road trails in a specific region. Purchase keys, join a quest, and unlock trail checkpoints as you explore. When you physically arrive at a hidden location, the app verifies your GPS position and marks the trail complete.',
-  },
-  {
-    heading: 'Offline Ready',
-    body: 'Trails run through remote areas with no cell service. ORTQ works fully offline — maps and checkpoints are downloaded before you head out, and completions sync automatically when you reconnect.',
-  },
-  {
-    heading: 'Keys & Points',
-    body: 'Keys are used to unlock trail checkpoints. Points are earned when you complete trails. Compete with other adventurers on the regional leaderboard for each active quest.',
-  },
-  {
-    heading: 'Contact',
-    body: 'Adventure Bound Software\nAdministration@offroadtreasurequest.com\n500 Sombrero, Horseshoe Bay, TX 78657',
-  },
-];
+function PageCard({ page }: { page: ContentPage }) {
+  const [expanded, setExpanded] = useState(false);
+  const { width } = useWindowDimensions();
+  const contentWidth = width - 64; // account for card padding
 
-const PRIVACY_SECTIONS: Section[] = [
-  {
-    body: 'Effective Date: 04/01/2025',
-  },
-  {
-    heading: '1. Introduction',
-    body: 'Welcome to Off Road Treasure Quest ("we," "our," or "us"). We value your privacy and are committed to protecting your personal information. This Privacy Policy explains how we collect, use, and share information about you when you use our mobile application ("App") and related services (collectively, the "Services").\n\nBy accessing or using our Services, you agree to the collection, use, and disclosure of your information as described in this Privacy Policy. If you disagree with this policy, please do not use our Services.',
-  },
-  {
-    heading: '2. Information We Collect',
-    body: 'a. Information You Provide to Us:',
-    bullets: [
-      'Account Information: When you create an account, we collect your name, email address, and password.',
-      'Payment Information: If you join a quest, we collect payment details such as credit card information, which is processed securely by a third-party payment processor.',
-      'User Content: Photos, videos, or other content you upload as part of your participation in quests.',
-    ],
-  },
-  {
-    body: 'b. Information We Automatically Collect:',
-    bullets: [
-      'Device Information: Details about the device you use to access our App, including hardware model, operating system, and browser type.',
-      'Location Data: Precise geolocation data to verify your arrival at quest locations. You will have the option to enable or disable location tracking through your device settings.',
-      'Usage Data: Information about how you interact with our App, including pages visited, time spent, and features used.',
-    ],
-  },
-  {
-    body: 'c. Information from Third Parties: We may receive information about you from third-party services, such as social media platforms if you connect your account to our App.',
-  },
-  {
-    heading: '3. How We Use Your Information',
-    body: 'We use the information we collect for the following purposes:',
-    bullets: [
-      'To provide and maintain the Services, including tracking quest progress and awarding points.',
-      'To process payments and deliver rewards.',
-      'To communicate with you about updates, promotions, and customer support inquiries.',
-      'To personalize your experience and recommend quests.',
-      'To ensure safety and compliance with our terms of use.',
-      'To analyze usage and improve the functionality and user experience of the App.',
-    ],
-  },
-  {
-    heading: '4. How We Share Your Information',
-    body: 'We may share your information with:',
-    bullets: [
-      'Service Providers: Third-party vendors who perform services on our behalf, such as payment processors and hosting providers.',
-      'Other Users: Your username and profile information may be visible to users participating in the same quests.',
-      'Legal Obligations: If required, authorities or entities must comply with legal obligations or protect our rights.',
-      'Business Transfers: In the event of a merger, acquisition, or sale of assets, your information may be transferred to the new owner.',
-    ],
-  },
-  {
-    body: 'We do not sell your personal information to third parties.',
-  },
-  {
-    heading: '5. Data Security',
-    body: 'We implement industry-standard security measures to protect your information. However, no method of transmission over the Internet or electronic storage is entirely secure. While we strive to protect your personal information, we cannot guarantee its absolute security.',
-  },
-  {
-    heading: '6. Your Choices',
-    bullets: [
-      'Access and Update: You may access and update your account information through the App.',
-      'Location Data: You can enable or disable location tracking via your device settings.',
-      'Communications: Opt out of promotional emails by following the unsubscribe instructions or contacting us.',
-    ],
-  },
-  {
-    heading: "7. Children's Privacy",
-    body: "Our Services are not intended for children under 13. We do not knowingly collect personal information from children under 13. If you believe we have inadvertently collected such information, please get in touch with us, and we will delete it.",
-  },
-  {
-    heading: '8. Changes to This Privacy Policy',
-    body: 'We may update this Privacy Policy from time to time. Any changes will be posted within the App and will include the "Effective Date" of the revised policy. Your continued use of the Services after the changes are posted constitutes your acceptance of the updated Privacy Policy.',
-  },
-  {
-    heading: '9. Contact Us',
-    body: 'If you have questions or concerns about this Privacy Policy, don\'t hesitate to get in touch with us at:\n\nAdventure Bound Software\nAdministration@offroadtreasurequest.com\n500 Sombrero, Horseshoe Bay, TX 78657',
-  },
-  {
-    body: 'Thank you for trusting Off Road Treasure Quest to be a part of your adventures!',
-  },
-];
+  return (
+    <View style={styles.pageCard}>
+      <TouchableOpacity
+        style={styles.pageHeader}
+        onPress={() => setExpanded(e => !e)}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.pageTitle}>{page.title}</Text>
+        <Ionicons
+          name={expanded ? 'chevron-up' : 'chevron-down'}
+          size={18}
+          color="#9AA0A6"
+        />
+      </TouchableOpacity>
+      {expanded && (
+        <View style={styles.pageBody}>
+          {page.description ? (
+            <RenderHtml
+              contentWidth={contentWidth}
+              source={{ html: page.description }}
+              tagsStyles={htmlStyles}
+            />
+          ) : (
+            <Text style={styles.emptyDesc}>No content available.</Text>
+          )}
+          <Text style={styles.updatedAt}>
+            Last updated:{' '}
+            {new Date(page.updated_at).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            })}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
 
-export default function AppInfoScreen({ navigation, route }: Props) {
-  const { title } = route.params;
-  const isPrivacy = title === 'Privacy Policy';
-  const sections = isPrivacy ? PRIVACY_SECTIONS : ABOUT_SECTIONS;
+export default function AppInfoScreen({ navigation }: Props) {
+  const [pages, setPages] = useState<ContentPage[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      const load = async () => {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('content_pages')
+          .select('id, title, description, updated_at')
+          .order('title');
+        if (!error && data) setPages(data as ContentPage[]);
+        setLoading(false);
+      };
+      load();
+    }, []),
+  );
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -142,42 +100,49 @@ export default function AppInfoScreen({ navigation, route }: Props) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color={Colors.blueGrey} />
         </TouchableOpacity>
-        <Text style={styles.topBarTitle}>{title}</Text>
+        <Text style={styles.topBarTitle}>App Support & Resources</Text>
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.pageTitle}>{title}</Text>
-
-        {sections.map((section, index) => (
-          <View key={index} style={styles.section}>
-            {section.heading && (
-              <Text style={styles.sectionHeading}>{section.heading}</Text>
-            )}
-            {section.body && (
-              <Text style={styles.sectionBody}>{section.body}</Text>
-            )}
-            {section.bullets && section.bullets.map((bullet, bi) => (
-              <View key={bi} style={styles.bulletRow}>
-                <Text style={styles.bulletDot}>{'\u2022'}</Text>
-                <Text style={styles.bulletText}>{bullet}</Text>
-              </View>
-            ))}
-          </View>
-        ))}
-      </ScrollView>
+      {loading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={Colors.orange} />
+        </View>
+      ) : pages.length === 0 ? (
+        <View style={styles.centered}>
+          <Text style={styles.emptyText}>No informational content available.</Text>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {pages.map(page => (
+            <PageCard key={page.id} page={page} />
+          ))}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
 
+// HTML tag styles passed to react-native-render-html
+const htmlStyles = {
+  p: { fontFamily: Fonts.firaSansRegular, fontSize: 14, color: '#374151', lineHeight: 22, marginBottom: 8 },
+  li: { fontFamily: Fonts.firaSansRegular, fontSize: 14, color: '#374151', lineHeight: 22 },
+  h1: { fontFamily: Fonts.gothamBold, fontSize: 18, color: Colors.blueGrey, marginBottom: 8 },
+  h2: { fontFamily: Fonts.gothamBold, fontSize: 16, color: Colors.blueGrey, marginBottom: 6 },
+  h3: { fontFamily: Fonts.firaSansBold, fontSize: 15, color: Colors.blueGrey, marginBottom: 4 },
+  strong: { fontFamily: Fonts.firaSansBold },
+};
+
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#fff' },
-  container: { flex: 1, backgroundColor: '#fff' },
-  scrollContent: { padding: 20, paddingBottom: 48 },
+  container: { flex: 1, backgroundColor: '#F5F5F5' },
+  scrollContent: { padding: 16, paddingBottom: 40 },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
+  emptyText: { fontFamily: Fonts.firaSansRegular, fontSize: 14, color: '#9AA0A6', textAlign: 'center' },
 
   topBar: {
     flexDirection: 'row',
@@ -192,45 +157,43 @@ const styles = StyleSheet.create({
   backBtn: { width: 40, alignItems: 'center' },
   topBarTitle: { fontFamily: Fonts.gothamBold, fontSize: 17, color: Colors.blueGrey },
 
+  pageCard: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    marginBottom: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  pageHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
   pageTitle: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 24,
-    color: Colors.blueGrey,
-    marginBottom: 20,
-  },
-  section: {
-    marginBottom: 16,
-  },
-  sectionHeading: {
     fontFamily: Fonts.firaSansBold,
     fontSize: 15,
     color: Colors.blueGrey,
-    marginBottom: 6,
-  },
-  sectionBody: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 14,
-    color: '#374151',
-    lineHeight: 22,
-    marginBottom: 6,
-  },
-  bulletRow: {
-    flexDirection: 'row',
-    paddingLeft: 8,
-    marginBottom: 4,
-  },
-  bulletDot: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 14,
-    color: '#374151',
-    marginRight: 8,
-    lineHeight: 22,
-  },
-  bulletText: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 14,
-    color: '#374151',
-    lineHeight: 22,
     flex: 1,
+    marginRight: 8,
+  },
+  pageBody: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+    paddingTop: 12,
+  },
+  emptyDesc: { fontFamily: Fonts.firaSansRegular, fontSize: 14, color: '#9AA0A6' },
+  updatedAt: {
+    fontFamily: Fonts.firaSansRegular,
+    fontSize: 11,
+    color: '#9AA0A6',
+    marginTop: 8,
   },
 });

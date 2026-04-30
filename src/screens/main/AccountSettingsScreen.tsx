@@ -62,6 +62,7 @@ function ActionRow({
 }
 
 export default function AccountSettingsScreen({ navigation }: Props) {
+  const [email, setEmail] = useState('');
   const [emailVerified, setEmailVerified] = useState(false);
   const [isActiveParticipant, setIsActiveParticipant] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -76,6 +77,7 @@ export default function AccountSettingsScreen({ navigation }: Props) {
         if (!session) { setLoading(false); return; }
 
         const userId = session.user.id;
+        setEmail(session.user.email ?? '');
         setEmailVerified(!!session.user.email_confirmed_at);
 
         try {
@@ -221,6 +223,18 @@ export default function AccountSettingsScreen({ navigation }: Props) {
             buttonLabel="Change"
             onPress={() => navigation.navigate('ChangePassword')}
           />
+          <View style={styles.rowDivider} />
+          <View style={styles.settingRow}>
+            <Text style={[styles.settingLabel, { flex: 1, marginRight: 8 }]} numberOfLines={1}>
+              Email: {email}
+            </Text>
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={() => navigation.navigate('UpdateEmail')}
+            >
+              <Text style={styles.actionBtnText}>Change</Text>
+            </TouchableOpacity>
+          </View>
           <View style={styles.rowDivider} />
           <ActionRow
             label="Delete Account"
