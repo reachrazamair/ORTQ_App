@@ -12,6 +12,7 @@ import {
   ScrollView,
   StatusBar,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -21,6 +22,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { launchImageLibrary } from 'react-native-image-picker';
 import Config from 'react-native-config';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
@@ -99,11 +101,35 @@ function formatRelativeTime(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+// Post image validation — allowed types, max 5 MB (matching web's PostComposer)
+const POST_IMAGE_ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+const POST_IMAGE_MAX_SIZE = 5 * 1024 * 1024;
+
+// Group header image validation — images only, max 5 MB
+const GROUP_IMAGE_MAX_SIZE = 5 * 1024 * 1024;
+
+// Group form validation (matching web's createGroupChatSchema)
+function validateGroupForm(title: string, description: string): Record<string, string> {
+  const errs: Record<string, string> = {};
+  if (!title.trim()) errs.title = 'Group title is required';
+  else if (title.trim().length > 100) errs.title = 'Group title must be less than 100 characters';
+  if (description.trim().length > 1000) errs.description = 'Description must be less than 1000 characters';
+  return errs;
+}
+
 // ---------------------------------------------------------------------------
 // PostCard
 // ---------------------------------------------------------------------------
 
-function PostCard({ post, currentUserId, onDelete }: { post: Post; currentUserId: string | null; onDelete: (id: string) => void }) {
+function PostCard({
+  post,
+  currentUserId,
+  onDelete,
+}: {
+  post: Post;
+  currentUserId: string | null;
+  onDelete: (id: string) => void;
+}) {
   const name = getDisplayName(post);
   const initials = getInitials(name);
   const avatarUri = getAvatarUrl(post.profiles?.profile_image_url ?? null);
@@ -134,7 +160,11 @@ function PostCard({ post, currentUserId, onDelete }: { post: Post; currentUserId
       <Text style={styles.postContent}>{post.content}</Text>
       {post.image_url ? (
         <Image
-          source={{ uri: post.image_url.startsWith('http') ? post.image_url : `${Config.SUPABASE_URL}/storage/v1/object/public/community_posts/${post.image_url}` }}
+          source={{
+            uri: post.image_url.startsWith('http')
+              ? post.image_url
+              : `${Config.SUPABASE_URL}/storage/v1/object/public/community_posts/${post.image_url}`,
+          }}
           style={styles.postImage}
           resizeMode="cover"
         />
@@ -147,7 +177,13 @@ function PostCard({ post, currentUserId, onDelete }: { post: Post; currentUserId
 // GroupCard
 // ---------------------------------------------------------------------------
 
-function GroupCard({ group, onPress, onJoin, onLeave, currentUserId }: {
+function GroupCard({
+  group,
+  onPress,
+  onJoin,
+  onLeave,
+  currentUserId,
+}: {
   group: Group;
   onPress: () => void;
   onJoin: (g: Group) => void;
@@ -173,13 +209,19 @@ function GroupCard({ group, onPress, onJoin, onLeave, currentUserId }: {
         )}
       </View>
       <View style={styles.groupInfo}>
-        <Text style={styles.groupName} numberOfLines={1}>{group.name}</Text>
+        <Text style={styles.groupName} numberOfLines={1}>
+          {group.name}
+        </Text>
         {group.description ? (
-          <Text style={styles.groupDesc} numberOfLines={2}>{group.description}</Text>
+          <Text style={styles.groupDesc} numberOfLines={2}>
+            {group.description}
+          </Text>
         ) : null}
         <View style={styles.groupMeta}>
           <Icon name="people-outline" size={13} color="#9AA0A6" />
-          <Text style={styles.groupMetaText}>{group.member_count} {group.member_count === 1 ? 'member' : 'members'}</Text>
+          <Text style={styles.groupMetaText}>
+            {group.member_count} {group.member_count === 1 ? 'member' : 'members'}
+          </Text>
         </View>
       </View>
       {!group.is_member ? (
@@ -208,33 +250,87 @@ function GroupCard({ group, onPress, onJoin, onLeave, currentUserId }: {
 }
 
 // ---------------------------------------------------------------------------
-// ComposeModal
+// ComposeModal — text + optional image upload (matching web's PostComposer)
 // ---------------------------------------------------------------------------
 
-function ComposeModal({ visible, onClose, onSubmit }: {
+function ComposeModal({
+  visible,
+  onClose,
+  onSubmit,
+  isQuestParticipant,
+}: {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (content: string) => Promise<void>;
+  onSubmit: (content: string, imageUrl: string | null) => Promise<void>;
+  isQuestParticipant: boolean;
 }) {
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imageType, setImageType] = useState<string>('image/jpeg');
 
   const handleClose = () => {
     setContent('');
+    setImageUri(null);
     onClose();
+  };
+
+  const handlePickImage = () => {
+    launchImageLibrary({ mediaType: 'photo', quality: 0.8 }, response => {
+      if (response.didCancel || !response.assets?.length) return;
+      const asset = response.assets[0];
+
+      const type = asset.type?.toLowerCase() ?? '';
+      if (!POST_IMAGE_ALLOWED_TYPES.includes(type)) {
+        Alert.alert('Unsupported file type', 'You can upload only images (JPEG, PNG, WEBP, GIF).');
+        return;
+      }
+      if ((asset.fileSize ?? 0) > POST_IMAGE_MAX_SIZE) {
+        Alert.alert('File too large', 'Maximum allowed file size is 5 MB.');
+        return;
+      }
+
+      setImageUri(asset.uri ?? null);
+      setImageType(asset.type ?? 'image/jpeg');
+    });
   };
 
   const handleSubmit = async () => {
     const trimmed = content.trim();
-    if (!trimmed) return;
+    if (!trimmed && !imageUri) {
+      Alert.alert('Add a story or photo', 'Share a quick note or attach a photo.');
+      return;
+    }
     if (trimmed.length > 2000) {
       Alert.alert('Too long', 'Posts cannot exceed 2000 characters.');
       return;
     }
+
     setLoading(true);
-    await onSubmit(trimmed);
+
+    let uploadedImageUrl: string | null = null;
+    if (imageUri) {
+      try {
+        const fetchResponse = await fetch(imageUri);
+        const blob = await fetchResponse.blob();
+        const ext = imageType.split('/')[1] ?? 'jpg';
+        const fileName = `${Date.now()}-photo.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from('community_posts')
+          .upload(fileName, blob, { contentType: imageType, upsert: false });
+        if (uploadError) throw new Error(uploadError.message);
+        uploadedImageUrl = fileName;
+      } catch {
+        Alert.alert('Upload Failed', 'Failed to upload image. Please try again.');
+        setLoading(false);
+        return;
+      }
+    }
+
+    await onSubmit(trimmed, uploadedImageUrl);
     setLoading(false);
     setContent('');
+    setImageUri(null);
     onClose();
   };
 
@@ -253,33 +349,299 @@ function ComposeModal({ visible, onClose, onSubmit }: {
                 <Icon name="close" size={22} color={Colors.blueGrey} />
               </TouchableOpacity>
             </View>
+
             <TextInput
               style={styles.composeInput}
               value={content}
               onChangeText={setContent}
-              placeholder="Share something with the community..."
+              placeholder={
+                isQuestParticipant
+                  ? 'Share your latest trail story...'
+                  : 'Quest participation required to post.'
+              }
               placeholderTextColor="#9AA0A6"
               multiline
               maxLength={2000}
-              autoFocus
+              autoFocus={isQuestParticipant}
+              editable={isQuestParticipant && !loading}
             />
             <Text style={styles.composeCount}>{content.length}/2000</Text>
+
+            {imageUri ? (
+              <View style={styles.imagePreviewWrap}>
+                <Image source={{ uri: imageUri }} style={styles.imagePreview} resizeMode="cover" />
+                <TouchableOpacity
+                  style={styles.removeImageBtn}
+                  onPress={() => setImageUri(null)}
+                  disabled={loading}
+                >
+                  <Icon name="close-circle" size={22} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
             <View style={styles.composeActions}>
-              <TouchableOpacity style={styles.composeCancelBtn} onPress={handleClose}>
-                <Text style={styles.composeCancelText}>Cancel</Text>
-              </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.composeSubmitBtn, (!content.trim() || loading) && { opacity: 0.5 }]}
-                onPress={handleSubmit}
-                disabled={!content.trim() || loading}
+                style={[
+                  styles.addPhotoBtn,
+                  (!isQuestParticipant || loading) && { opacity: 0.4 },
+                ]}
+                onPress={handlePickImage}
+                disabled={!isQuestParticipant || loading}
               >
-                {loading ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.composeSubmitText}>Post</Text>
-                )}
+                <Icon name="image-outline" size={18} color={Colors.blueGrey} />
+                <Text style={styles.addPhotoText}>
+                  {imageUri ? 'Change photo' : 'Add photo'}
+                </Text>
+              </TouchableOpacity>
+
+              <View style={styles.composeBtns}>
+                <TouchableOpacity style={styles.composeCancelBtn} onPress={handleClose}>
+                  <Text style={styles.composeCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.composeSubmitBtn,
+                    ((!content.trim() && !imageUri) || loading || !isQuestParticipant) && {
+                      opacity: 0.5,
+                    },
+                  ]}
+                  onPress={handleSubmit}
+                  disabled={(!content.trim() && !imageUri) || loading || !isQuestParticipant}
+                >
+                  {loading ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.composeSubmitText}>Publish</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// CreateGroupModal (matching web's CreateGroupChatForm + createGroupChatSchema)
+// ---------------------------------------------------------------------------
+
+function CreateGroupModal({
+  visible,
+  onClose,
+  currentUserId,
+  onGroupCreated,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  currentUserId: string | null;
+  onGroupCreated: (groupId: string, groupName: string) => void;
+}) {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [headerImageUri, setHeaderImageUri] = useState<string | null>(null);
+  const [headerImageType, setHeaderImageType] = useState<string>('image/jpeg');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
+
+  const handleClose = () => {
+    setTitle('');
+    setDescription('');
+    setIsPrivate(false);
+    setHeaderImageUri(null);
+    setErrors({});
+    onClose();
+  };
+
+  const handlePickHeaderImage = () => {
+    launchImageLibrary({ mediaType: 'photo', quality: 0.8 }, response => {
+      if (response.didCancel || !response.assets?.length) return;
+      const asset = response.assets[0];
+      if ((asset.fileSize ?? 0) > GROUP_IMAGE_MAX_SIZE) {
+        Alert.alert('File too large', 'Maximum allowed file size is 5 MB.');
+        return;
+      }
+      setHeaderImageUri(asset.uri ?? null);
+      setHeaderImageType(asset.type ?? 'image/jpeg');
+    });
+  };
+
+  const handleCreate = async () => {
+    const fieldErrors = validateGroupForm(title, description);
+    if (Object.keys(fieldErrors).length > 0) {
+      setErrors(fieldErrors);
+      return;
+    }
+    if (!currentUserId) return;
+
+    setLoading(true);
+
+    let headerImageUrl: string | null = null;
+    if (headerImageUri) {
+      try {
+        const fetchResponse = await fetch(headerImageUri);
+        const blob = await fetchResponse.blob();
+        const ext = headerImageType.split('/')[1] ?? 'jpg';
+        const fileName = `${Date.now()}-header.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from('community_groups')
+          .upload(fileName, blob, { contentType: headerImageType, upsert: false });
+        if (uploadError) throw new Error(uploadError.message);
+        headerImageUrl = fileName;
+      } catch {
+        Alert.alert('Upload Failed', 'Failed to upload header image. Please try again.');
+        setLoading(false);
+        return;
+      }
+    }
+
+    const { data: groupData, error: groupError } = await supabase
+      .from('community_groups')
+      .insert({
+        name: title.trim(),
+        description: description.trim() || '',
+        is_private: isPrivate,
+        header_image_url: headerImageUrl,
+        created_by: currentUserId,
+      })
+      .select('id, name')
+      .single();
+
+    if (groupError || !groupData) {
+      Alert.alert('Error', groupError?.message ?? 'Failed to create group.');
+      setLoading(false);
+      return;
+    }
+
+    // Ensure creator is an admin member (DB trigger may handle this, but we guarantee it)
+    await supabase.from('community_group_members').upsert({
+      group_id: groupData.id,
+      user_id: currentUserId,
+      role: 'admin',
+    });
+
+    setLoading(false);
+    handleClose();
+    Alert.alert('Success!', `Group "${groupData.name}" has been created.`);
+    onGroupCreated(groupData.id, groupData.name);
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <View style={styles.composeOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
+          <View style={[styles.composeSheet, { maxHeight: '90%' }]}>
+            <View style={styles.composeHeader}>
+              <Text style={styles.composeTitle}>Create New Group</Text>
+              <TouchableOpacity onPress={handleClose}>
+                <Icon name="close" size={22} color={Colors.blueGrey} />
               </TouchableOpacity>
             </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Title */}
+              <Text style={styles.fieldLabel}>Group Title</Text>
+              <TextInput
+                style={[styles.fieldInput, errors.title ? styles.fieldInputError : null]}
+                value={title}
+                onChangeText={t => {
+                  setTitle(t);
+                  if (errors.title) setErrors(prev => ({ ...prev, title: '' }));
+                }}
+                placeholder="e.g., Pacific Northwest Overlanders"
+                placeholderTextColor="#9AA0A6"
+                maxLength={100}
+                editable={!loading}
+              />
+              {errors.title ? <Text style={styles.fieldError}>{errors.title}</Text> : null}
+
+              {/* Description */}
+              <Text style={[styles.fieldLabel, { marginTop: 16 }]}>Description</Text>
+              <TextInput
+                style={[
+                  styles.fieldInput,
+                  styles.fieldInputMultiline,
+                  errors.description ? styles.fieldInputError : null,
+                ]}
+                value={description}
+                onChangeText={d => {
+                  setDescription(d);
+                  if (errors.description) setErrors(prev => ({ ...prev, description: '' }));
+                }}
+                placeholder="A brief description of your group's purpose."
+                placeholderTextColor="#9AA0A6"
+                multiline
+                maxLength={1000}
+                editable={!loading}
+              />
+              {errors.description ? (
+                <Text style={styles.fieldError}>{errors.description}</Text>
+              ) : null}
+
+              {/* Header Image */}
+              <Text style={[styles.fieldLabel, { marginTop: 16 }]}>
+                Header Image (Optional)
+              </Text>
+              {headerImageUri ? (
+                <View style={styles.headerImagePreviewWrap}>
+                  <Image
+                    source={{ uri: headerImageUri }}
+                    style={styles.headerImagePreview}
+                    resizeMode="cover"
+                  />
+                  <TouchableOpacity
+                    style={styles.removeImageBtn}
+                    onPress={() => setHeaderImageUri(null)}
+                    disabled={loading}
+                  >
+                    <Icon name="close-circle" size={22} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={styles.imagePickerBtn}
+                  onPress={handlePickHeaderImage}
+                  disabled={loading}
+                >
+                  <Icon name="image-outline" size={20} color="#9AA0A6" />
+                  <Text style={styles.imagePickerText}>Choose a header image</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Private toggle */}
+              <View style={styles.privateRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.privateLabel}>Make this group private</Text>
+                  <Text style={styles.privateSubLabel}>Invite only — members must be approved</Text>
+                </View>
+                <Switch
+                  value={isPrivate}
+                  onValueChange={setIsPrivate}
+                  trackColor={{ false: '#E9ECEF', true: Colors.orange }}
+                  thumbColor="#fff"
+                  disabled={loading}
+                />
+              </View>
+            </ScrollView>
+
+            <TouchableOpacity
+              style={[styles.composeSubmitBtn, { marginTop: 20 }, loading && { opacity: 0.6 }]}
+              onPress={handleCreate}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.composeSubmitText}>Create Group</Text>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -296,30 +658,42 @@ export default function CommunityScreen() {
 
   const [activeTab, setActiveTab] = useState<Tab>('feed');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isQuestParticipant, setIsQuestParticipant] = useState(false);
 
-  // Feed state
+  // Feed
   const [posts, setPosts] = useState<Post[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [showCompose, setShowCompose] = useState(false);
 
-  // My Groups state
+  // My Groups
   const [myGroups, setMyGroups] = useState<Group[]>([]);
   const [loadingMyGroups, setLoadingMyGroups] = useState(false);
 
-  // Discover state
+  // Discover
   const [allGroups, setAllGroups] = useState<Group[]>([]);
   const [loadingDiscover, setLoadingDiscover] = useState(false);
   const [search, setSearch] = useState('');
 
   const [refreshing, setRefreshing] = useState(false);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
 
   // ---------------------------------------------------------------------------
-  // Auth
+  // Auth + quest participation
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setCurrentUserId(data.user?.id ?? null);
+    supabase.auth.getUser().then(async ({ data }) => {
+      const uid = data.user?.id ?? null;
+      setCurrentUserId(uid);
+      if (uid) {
+        const { data: questData } = await supabase
+          .from('user_quests')
+          .select('id')
+          .eq('user_id', uid)
+          .eq('status', 'active')
+          .limit(1);
+        setIsQuestParticipant((questData?.length ?? 0) > 0);
+      }
     });
   }, []);
 
@@ -334,30 +708,30 @@ export default function CommunityScreen() {
         .from('community_posts')
         .select('*, profiles(full_name, alias, profile_image_url)')
         .order('created_at', { ascending: false })
-        .limit(30);
+        .limit(50);
       if (!error) setPosts((data as Post[]) ?? []);
     } finally {
       setLoadingPosts(false);
     }
   }, []);
 
-  const handleCreatePost = useCallback(async (content: string) => {
-    if (!currentUserId) return;
-    const { error } = await supabase
-      .from('community_posts')
-      .insert({ user_id: currentUserId, content });
-    if (error) {
-      Alert.alert('Error', 'Failed to post. Please try again.');
-      return;
-    }
-    await loadPosts();
-  }, [currentUserId, loadPosts]);
+  const handleCreatePost = useCallback(
+    async (content: string, imageUrl: string | null) => {
+      if (!currentUserId) return;
+      const { error } = await supabase
+        .from('community_posts')
+        .insert({ user_id: currentUserId, content, image_url: imageUrl });
+      if (error) {
+        Alert.alert('Error', 'Failed to post. Please try again.');
+        return;
+      }
+      await loadPosts();
+    },
+    [currentUserId, loadPosts],
+  );
 
   const handleDeletePost = useCallback(async (postId: string) => {
-    const { error } = await supabase
-      .from('community_posts')
-      .delete()
-      .eq('id', postId);
+    const { error } = await supabase.from('community_posts').delete().eq('id', postId);
     if (!error) setPosts(prev => prev.filter(p => p.id !== postId));
   }, []);
 
@@ -371,14 +745,14 @@ export default function CommunityScreen() {
     try {
       const { data, error } = await supabase
         .from('community_group_members')
-        .select('role, community_groups(id, name, description, header_image_url, is_private, created_by, last_activity_at)')
+        .select(
+          'role, community_groups(id, name, description, header_image_url, is_private, created_by, last_activity_at)',
+        )
         .eq('user_id', currentUserId);
 
       if (error || !data) return;
 
       const groupIds = data.map((m: any) => m.community_groups?.id).filter(Boolean);
-
-      // Fetch member counts
       let countMap: Record<string, number> = {};
       if (groupIds.length > 0) {
         const { data: counts } = await supabase
@@ -398,7 +772,6 @@ export default function CommunityScreen() {
           is_member: true,
           user_role: m.role,
         }));
-
       setMyGroups(groups);
     } finally {
       setLoadingMyGroups(false);
@@ -414,14 +787,14 @@ export default function CommunityScreen() {
     try {
       const { data: groups, error } = await supabase
         .from('community_groups')
-        .select('id, name, description, header_image_url, is_private, created_by, last_activity_at')
+        .select(
+          'id, name, description, header_image_url, is_private, created_by, last_activity_at',
+        )
         .order('last_activity_at', { ascending: false });
 
       if (error || !groups) return;
 
       const groupIds = groups.map((g: any) => g.id);
-
-      // Fetch member counts
       let countMap: Record<string, number> = {};
       if (groupIds.length > 0) {
         const { data: counts } = await supabase
@@ -433,7 +806,6 @@ export default function CommunityScreen() {
         });
       }
 
-      // Fetch current user's memberships
       let memberSet: Set<string> = new Set();
       let roleMap: Record<string, 'admin' | 'member'> = {};
       if (currentUserId && groupIds.length > 0) {
@@ -454,7 +826,6 @@ export default function CommunityScreen() {
         is_member: memberSet.has(g.id),
         user_role: roleMap[g.id] ?? null,
       }));
-
       setAllGroups(result);
     } finally {
       setLoadingDiscover(false);
@@ -462,55 +833,64 @@ export default function CommunityScreen() {
   }, [currentUserId]);
 
   // ---------------------------------------------------------------------------
-  // Group join / leave
+  // Join / Leave
   // ---------------------------------------------------------------------------
 
-  const handleJoinGroup = useCallback(async (group: Group) => {
-    if (!currentUserId) return;
-    if (group.is_private) {
-      Alert.alert(
-        'Private Group',
-        `Send a join request to "${group.name}"?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Send Request',
-            onPress: async () => {
-              const { error } = await supabase
-                .from('community_group_join_requests')
-                .insert({ group_id: group.id, user_id: currentUserId, status: 'pending' });
-              if (error) {
-                if (error.code === '23505') {
-                  Alert.alert('Already Requested', 'Your request is pending approval.');
-                } else {
-                  Alert.alert('Error', 'Failed to send join request.');
-                }
-              } else {
-                Alert.alert('Request Sent', 'Your request is pending approval from an admin.');
-              }
-            },
-          },
-        ],
-      );
-    } else {
-      const { error } = await supabase
-        .from('community_group_members')
-        .insert({ group_id: group.id, user_id: currentUserId, role: 'member' });
-      if (error) {
-        Alert.alert('Error', 'Failed to join group.');
+  const handleJoinGroup = useCallback(
+    async (group: Group) => {
+      if (!currentUserId) return;
+
+      if (!isQuestParticipant) {
+        Alert.alert(
+          'Quest Participation Required',
+          'You must be participating in a quest to join a group.',
+        );
         return;
       }
-      // Refresh both lists
-      await Promise.all([loadMyGroups(), loadAllGroups()]);
-      Alert.alert('Joined!', `You are now a member of "${group.name}".`);
-    }
-  }, [currentUserId, loadMyGroups, loadAllGroups]);
 
-  const handleLeaveGroup = useCallback(async (group: Group) => {
-    Alert.alert(
-      'Leave Group',
-      `Leave "${group.name}"?`,
-      [
+      if (group.is_private) {
+        Alert.alert(
+          'Private Group',
+          `Send a join request to "${group.name}"?`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Send Request',
+              onPress: async () => {
+                const { error } = await supabase
+                  .from('community_group_join_requests')
+                  .insert({ group_id: group.id, user_id: currentUserId, status: 'pending' });
+                if (error) {
+                  if (error.code === '23505') {
+                    Alert.alert('Already Requested', 'Your request is pending approval.');
+                  } else {
+                    Alert.alert('Error', 'Failed to send join request.');
+                  }
+                } else {
+                  Alert.alert('Request Sent', 'Your request is pending approval from an admin.');
+                }
+              },
+            },
+          ],
+        );
+      } else {
+        const { error } = await supabase
+          .from('community_group_members')
+          .insert({ group_id: group.id, user_id: currentUserId, role: 'member' });
+        if (error) {
+          Alert.alert('Error', 'Failed to join group.');
+          return;
+        }
+        await Promise.all([loadMyGroups(), loadAllGroups()]);
+        Alert.alert('Joined!', `You are now a member of "${group.name}".`);
+      }
+    },
+    [currentUserId, isQuestParticipant, loadMyGroups, loadAllGroups],
+  );
+
+  const handleLeaveGroup = useCallback(
+    async (group: Group) => {
+      Alert.alert('Leave Group', `Leave "${group.name}"?`, [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Leave',
@@ -528,12 +908,13 @@ export default function CommunityScreen() {
             await Promise.all([loadMyGroups(), loadAllGroups()]);
           },
         },
-      ],
-    );
-  }, [currentUserId, loadMyGroups, loadAllGroups]);
+      ]);
+    },
+    [currentUserId, loadMyGroups, loadAllGroups],
+  );
 
   // ---------------------------------------------------------------------------
-  // Focus effect — reload active tab
+  // Focus effect
   // ---------------------------------------------------------------------------
 
   useFocusEffect(
@@ -544,7 +925,6 @@ export default function CommunityScreen() {
     }, [activeTab, loadPosts, loadMyGroups, loadAllGroups]),
   );
 
-  // Reload when switching tabs
   const handleTabChange = (tab: Tab) => {
     setActiveTab(tab);
     if (tab === 'feed') loadPosts();
@@ -561,7 +941,7 @@ export default function CommunityScreen() {
   }, [activeTab, loadPosts, loadMyGroups, loadAllGroups]);
 
   // ---------------------------------------------------------------------------
-  // Discover filtered results
+  // Discover filtered
   // ---------------------------------------------------------------------------
 
   const filteredGroups = search.trim()
@@ -572,13 +952,33 @@ export default function CommunityScreen() {
   // Render
   // ---------------------------------------------------------------------------
 
-  const listData = activeTab === 'feed' ? posts : activeTab === 'groups' ? myGroups : filteredGroups;
+  const listData =
+    activeTab === 'feed' ? posts : activeTab === 'groups' ? myGroups : filteredGroups;
+  const isLoadingTab =
+    activeTab === 'feed'
+      ? loadingPosts
+      : activeTab === 'groups'
+      ? loadingMyGroups
+      : loadingDiscover;
 
-  const isLoadingTab = activeTab === 'feed' ? loadingPosts : activeTab === 'groups' ? loadingMyGroups : loadingDiscover;
-
-  const emptyIcon = activeTab === 'feed' ? 'chatbubbles-outline' : activeTab === 'groups' ? 'people-outline' : 'compass-outline';
-  const emptyTitle = activeTab === 'feed' ? 'No posts yet' : activeTab === 'groups' ? 'No groups yet' : 'No groups found';
-  const emptyBody = activeTab === 'feed' ? 'Be the first to share something!' : activeTab === 'groups' ? 'Discover and join groups in the Discover tab.' : 'Try a different search term.';
+  const emptyIcon =
+    activeTab === 'feed'
+      ? 'chatbubbles-outline'
+      : activeTab === 'groups'
+      ? 'people-outline'
+      : 'compass-outline';
+  const emptyTitle =
+    activeTab === 'feed'
+      ? 'No posts yet'
+      : activeTab === 'groups'
+      ? 'No groups yet'
+      : 'No groups found';
+  const emptyBody =
+    activeTab === 'feed'
+      ? 'Be the first to share something!'
+      : activeTab === 'groups'
+      ? 'Discover and join groups in the Discover tab.'
+      : 'Try a different search term.';
 
   const ListHeader = (
     <>
@@ -587,11 +987,38 @@ export default function CommunityScreen() {
           <Text style={styles.headerTitle}>Community</Text>
           <Text style={styles.headerSub}>Connect with fellow riders</Text>
         </View>
-        {activeTab === 'feed' && (
-          <TouchableOpacity style={styles.composeBtn} onPress={() => setShowCompose(true)}>
-            <Icon name="add" size={20} color="#fff" />
+        <View style={styles.headerActions}>
+          {/* Create Group button — disabled if not quest participant (matching web) */}
+          <TouchableOpacity
+            style={[styles.createGroupBtn, !isQuestParticipant && styles.createGroupBtnDisabled]}
+            onPress={() => {
+              if (!isQuestParticipant) {
+                Alert.alert(
+                  'Quest Participation Required',
+                  'You must be participating in a quest to create a group.',
+                );
+                return;
+              }
+              setShowCreateGroup(true);
+            }}
+          >
+            <Icon name="people-outline" size={14} color={isQuestParticipant ? '#fff' : '#9AA0A6'} />
+            <Text
+              style={[
+                styles.createGroupBtnText,
+                !isQuestParticipant && styles.createGroupBtnTextDisabled,
+              ]}
+            >
+              New Group
+            </Text>
           </TouchableOpacity>
-        )}
+
+          {activeTab === 'feed' && (
+            <TouchableOpacity style={styles.composeBtn} onPress={() => setShowCompose(true)}>
+              <Icon name="add" size={20} color="#fff" />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <View style={styles.segmentRow}>
@@ -610,7 +1037,7 @@ export default function CommunityScreen() {
 
       {activeTab === 'discover' && (
         <View style={styles.searchWrap}>
-          <Icon name="search-outline" size={16} color="#9AA0A6" style={styles.searchIcon} />
+          <Icon name="search-outline" size={16} color="#9AA0A6" />
           <TextInput
             style={styles.searchInput}
             value={search}
@@ -619,7 +1046,10 @@ export default function CommunityScreen() {
             placeholderTextColor="#9AA0A6"
           />
           {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity
+              onPress={() => setSearch('')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
               <Icon name="close-circle" size={16} color="#9AA0A6" />
             </TouchableOpacity>
           )}
@@ -642,7 +1072,9 @@ export default function CommunityScreen() {
             ) : (
               <GroupCard
                 group={item}
-                onPress={() => navigation.navigate('GroupChat', { groupId: item.id, groupName: item.name })}
+                onPress={() =>
+                  navigation.navigate('GroupChat', { groupId: item.id, groupName: item.name })
+                }
                 onJoin={handleJoinGroup}
                 onLeave={handleLeaveGroup}
                 currentUserId={currentUserId}
@@ -680,6 +1112,17 @@ export default function CommunityScreen() {
         visible={showCompose}
         onClose={() => setShowCompose(false)}
         onSubmit={handleCreatePost}
+        isQuestParticipant={isQuestParticipant}
+      />
+
+      <CreateGroupModal
+        visible={showCreateGroup}
+        onClose={() => setShowCreateGroup(false)}
+        currentUserId={currentUserId}
+        onGroupCreated={(groupId, groupName) => {
+          navigation.navigate('GroupChat', { groupId, groupName });
+          loadMyGroups();
+        }}
       />
     </SafeAreaView>
   );
@@ -691,7 +1134,6 @@ export default function CommunityScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#F5F5F5' },
-  flex: { flex: 1 },
 
   // Header
   header: {
@@ -709,11 +1151,8 @@ const styles = StyleSheet.create({
     color: Colors.blueGrey,
     marginBottom: 2,
   },
-  headerSub: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 14,
-    color: '#687076',
-  },
+  headerSub: { fontFamily: Fonts.firaSansRegular, fontSize: 14, color: '#687076' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   composeBtn: {
     width: 40,
     height: 40,
@@ -722,6 +1161,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  createGroupBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: Colors.blueGrey,
+  },
+  createGroupBtnDisabled: { backgroundColor: '#E9ECEF' },
+  createGroupBtnText: { fontFamily: Fonts.firaSansBold, fontSize: 12, color: '#fff' },
+  createGroupBtnTextDisabled: { color: '#9AA0A6' },
 
   // Segment
   segmentRow: {
@@ -732,12 +1183,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 3,
   },
-  segment: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderRadius: 8,
-  },
+  segment: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 8 },
   segmentActive: {
     backgroundColor: '#fff',
     shadowColor: '#000',
@@ -746,15 +1192,8 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  segmentText: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 13,
-    color: '#687076',
-  },
-  segmentTextActive: {
-    fontFamily: Fonts.firaSansBold,
-    color: Colors.blueGrey,
-  },
+  segmentText: { fontFamily: Fonts.firaSansRegular, fontSize: 13, color: '#687076' },
+  segmentTextActive: { fontFamily: Fonts.firaSansBold, color: Colors.blueGrey },
 
   // List
   listContent: { paddingBottom: 32 },
@@ -772,12 +1211,7 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-  postHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-    gap: 10,
-  },
+  postHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 10 },
   postAvatar: { width: 38, height: 38, borderRadius: 19 },
   postAvatarPlaceholder: {
     width: 38,
@@ -787,11 +1221,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  postAvatarInitials: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 14,
-    color: Colors.blueGrey,
-  },
+  postAvatarInitials: { fontFamily: Fonts.gothamBold, fontSize: 14, color: Colors.blueGrey },
   postMeta: { flex: 1 },
   postAuthor: {
     fontFamily: Fonts.firaSansBold,
@@ -799,23 +1229,14 @@ const styles = StyleSheet.create({
     color: Colors.blueGrey,
     marginBottom: 1,
   },
-  postTime: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 12,
-    color: '#9AA0A6',
-  },
+  postTime: { fontFamily: Fonts.firaSansRegular, fontSize: 12, color: '#9AA0A6' },
   postContent: {
     fontFamily: Fonts.firaSansRegular,
     fontSize: 14,
     color: Colors.blueGrey,
     lineHeight: 21,
   },
-  postImage: {
-    width: '100%',
-    height: 200,
-    borderRadius: 10,
-    marginTop: 10,
-  },
+  postImage: { width: '100%', height: 200, borderRadius: 10, marginTop: 10 },
 
   // Group card
   groupCard: {
@@ -854,12 +1275,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   groupInfo: { flex: 1 },
-  groupName: {
-    fontFamily: Fonts.firaSansBold,
-    fontSize: 14,
-    color: Colors.blueGrey,
-    marginBottom: 3,
-  },
+  groupName: { fontFamily: Fonts.firaSansBold, fontSize: 14, color: Colors.blueGrey, marginBottom: 3 },
   groupDesc: {
     fontFamily: Fonts.firaSansRegular,
     fontSize: 12,
@@ -867,27 +1283,15 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     marginBottom: 4,
   },
-  groupMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  groupMetaText: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 12,
-    color: '#9AA0A6',
-  },
+  groupMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  groupMetaText: { fontFamily: Fonts.firaSansRegular, fontSize: 12, color: '#9AA0A6' },
   joinBtn: {
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
     backgroundColor: Colors.orange,
   },
-  joinBtnText: {
-    fontFamily: Fonts.firaSansBold,
-    fontSize: 12,
-    color: '#fff',
-  },
+  joinBtnText: { fontFamily: Fonts.firaSansBold, fontSize: 12, color: '#fff' },
   leaveBtn: {
     paddingHorizontal: 14,
     paddingVertical: 7,
@@ -895,22 +1299,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E9ECEF',
   },
-  leaveBtnText: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 12,
-    color: '#9AA0A6',
-  },
+  leaveBtnText: { fontFamily: Fonts.firaSansRegular, fontSize: 12, color: '#9AA0A6' },
   roleBadge: {
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 20,
     backgroundColor: Colors.orange + '20',
   },
-  roleBadgeText: {
-    fontFamily: Fonts.firaSansBold,
-    fontSize: 11,
-    color: Colors.orange,
-  },
+  roleBadgeText: { fontFamily: Fonts.firaSansBold, fontSize: 11, color: Colors.orange },
 
   // Discover search
   searchWrap: {
@@ -929,7 +1325,6 @@ const styles = StyleSheet.create({
     elevation: 2,
     gap: 8,
   },
-  searchIcon: {},
   searchInput: {
     flex: 1,
     fontFamily: Fonts.firaSansRegular,
@@ -957,11 +1352,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 16,
   },
-  composeTitle: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 18,
-    color: Colors.blueGrey,
-  },
+  composeTitle: { fontFamily: Fonts.gothamBold, fontSize: 18, color: Colors.blueGrey },
   composeInput: {
     borderWidth: 1,
     borderColor: '#E9ECEF',
@@ -970,7 +1361,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.firaSansRegular,
     fontSize: 14,
     color: Colors.blueGrey,
-    minHeight: 120,
+    minHeight: 100,
     textAlignVertical: 'top',
     marginBottom: 6,
   },
@@ -979,37 +1370,95 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#9AA0A6',
     textAlign: 'right',
-    marginBottom: 16,
+    marginBottom: 12,
+  },
+  imagePreviewWrap: { position: 'relative', marginBottom: 12 },
+  imagePreview: { width: '100%', height: 180, borderRadius: 10 },
+  removeImageBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   composeActions: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
   },
+  addPhotoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+    borderStyle: 'dashed',
+  },
+  addPhotoText: { fontFamily: Fonts.firaSansRegular, fontSize: 13, color: Colors.blueGrey },
+  composeBtns: { flexDirection: 'row', gap: 10 },
   composeCancelBtn: {
-    flex: 1,
-    paddingVertical: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E9ECEF',
     alignItems: 'center',
   },
-  composeCancelText: {
-    fontFamily: Fonts.firaSansBold,
-    fontSize: 14,
-    color: Colors.blueGrey,
-  },
+  composeCancelText: { fontFamily: Fonts.firaSansBold, fontSize: 14, color: Colors.blueGrey },
   composeSubmitBtn: {
-    flex: 2,
-    paddingVertical: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
     borderRadius: 12,
     backgroundColor: Colors.orange,
     alignItems: 'center',
   },
-  composeSubmitText: {
-    fontFamily: Fonts.firaSansBold,
+  composeSubmitText: { fontFamily: Fonts.firaSansBold, fontSize: 14, color: '#fff' },
+
+  // Create group modal fields
+  fieldLabel: { fontFamily: Fonts.firaSansBold, fontSize: 14, color: Colors.blueGrey, marginBottom: 6 },
+  fieldInput: {
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontFamily: Fonts.firaSansRegular,
     fontSize: 14,
-    color: '#fff',
+    color: Colors.blueGrey,
   },
+  fieldInputMultiline: { minHeight: 80, textAlignVertical: 'top' },
+  fieldInputError: { borderColor: '#EF4444' },
+  fieldError: { fontFamily: Fonts.firaSansRegular, fontSize: 12, color: '#EF4444', marginTop: 4 },
+  imagePickerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    padding: 16,
+  },
+  imagePickerText: { fontFamily: Fonts.firaSansRegular, fontSize: 14, color: '#9AA0A6' },
+  headerImagePreviewWrap: { position: 'relative', marginBottom: 4 },
+  headerImagePreview: { width: '100%', height: 120, borderRadius: 12 },
+  privateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+    gap: 12,
+  },
+  privateLabel: { fontFamily: Fonts.firaSansBold, fontSize: 14, color: Colors.blueGrey },
+  privateSubLabel: { fontFamily: Fonts.firaSansRegular, fontSize: 12, color: '#687076', marginTop: 2 },
 
   // Empty / centered
   centered: { paddingVertical: 60, alignItems: 'center' },
@@ -1019,11 +1468,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     gap: 10,
   },
-  emptyTitle: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 18,
-    color: Colors.blueGrey,
-  },
+  emptyTitle: { fontFamily: Fonts.gothamBold, fontSize: 18, color: Colors.blueGrey },
   emptyBody: {
     fontFamily: Fonts.firaSansRegular,
     fontSize: 14,

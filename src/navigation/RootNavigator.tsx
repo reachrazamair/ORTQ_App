@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, View } from 'react-native';
 import { Session } from '@supabase/supabase-js';
 import { Colors } from '../theme/colors';
 import { supabase } from '../lib/supabase';
@@ -27,6 +27,85 @@ export default function RootNavigator() {
       emitPaymentCancel();
       if (navigationRef.isReady()) {
         navigationRef.navigate('Explorer');
+      }
+      return;
+    }
+
+    if (url.startsWith('ortq://community/invite')) {
+      const queryString = url.split('?')[1] ?? '';
+      const params = Object.fromEntries(new URLSearchParams(queryString));
+      const token = params.token;
+      const groupId = params.groupId;
+      if (!token || !groupId) return;
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        Alert.alert('Sign In Required', 'Please sign in to accept this group invitation.');
+        return;
+      }
+
+      try {
+        const { data: invite, error } = await supabase
+          .from('community_group_invitations')
+          .select('id, group_id, status, community_groups(name)')
+          .eq('token', token)
+          .eq('status', 'pending')
+          .single();
+
+        if (error || !invite) {
+          Alert.alert('Invitation Invalid', 'This invitation has already been used or has expired.');
+          return;
+        }
+
+        await supabase
+          .from('community_group_invitations')
+          .update({ status: 'accepted', accepted_at: new Date().toISOString() })
+          .eq('id', invite.id)
+          .eq('status', 'pending');
+
+        // Ignore duplicate-member error (code 23505)
+        await supabase
+          .from('community_group_members')
+          .insert({ group_id: groupId, user_id: user.id, role: 'member' });
+
+        const groupData = Array.isArray(invite.community_groups)
+          ? invite.community_groups[0]
+          : invite.community_groups;
+        const groupName = (groupData as any)?.name ?? 'Group';
+
+        Alert.alert('Invitation Accepted!', `You've joined "${groupName}".`, [
+          {
+            text: 'Open Group',
+            onPress: () => {
+              if (navigationRef.isReady()) {
+                navigationRef.navigate('Community', {
+                  screen: 'GroupChat',
+                  params: { groupId, groupName },
+                });
+              }
+            },
+          },
+        ]);
+      } catch {
+        Alert.alert('Error', 'Failed to accept invitation. Please try again.');
+      }
+      return;
+    }
+
+    if (url.startsWith('ortq://community/group')) {
+      const queryString = url.split('?')[1] ?? '';
+      const params = Object.fromEntries(new URLSearchParams(queryString));
+      const groupId = params.groupId;
+      const groupName = params.groupName ?? 'Group';
+      if (navigationRef.isReady()) {
+        if (groupId) {
+          navigationRef.navigate('Community', {
+            screen: 'GroupChat',
+            params: { groupId, groupName },
+          });
+        } else {
+          navigationRef.navigate('Community');
+        }
       }
       return;
     }

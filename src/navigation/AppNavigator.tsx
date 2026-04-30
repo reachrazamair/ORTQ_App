@@ -10,7 +10,9 @@ import {
   View,
 } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { NavigatorScreenParams } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { CommunityStackParamList } from './CommunityStack';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import Geolocation from '@react-native-community/geolocation';
 import { Colors } from '../theme/colors';
@@ -34,7 +36,7 @@ import MapScreen from '../screens/main/MapScreen';
 export type AppTabParamList = {
   Explorer: undefined;
   Map: { trailId?: string };
-  Community: undefined;
+  Community: NavigatorScreenParams<CommunityStackParamList> | undefined;
   Leaderboard: undefined;
   Profile: undefined;
 };
