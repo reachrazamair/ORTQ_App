@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AppState,
   Modal,
@@ -20,12 +20,13 @@ import { Fonts } from '../theme/fonts';
 import { supabase } from '../lib/supabase';
 import {
   getCachedTrails,
+  saveAllTrailsToCache,
   updateTrailStatusInCache,
   removeTrailFromCache,
   addToCompletionQueue,
   getCompletionQueue,
 } from '../lib/trailCache';
-import { deleteOfflinePack } from '../lib/offlineMap';
+import { downloadOfflinePack, deleteOfflinePack } from '../lib/offlineMap';
 import { emitTrailCompleted, emitGpsUpdate, onTrailUnlocked, onPaymentSuccess, onPaymentCancel, getPendingPaymentResult, clearPendingPaymentResult } from '../lib/trailEvents';
 import ProfileStack from './ProfileStack';
 import CommunityStack from './CommunityStack';
@@ -206,6 +207,47 @@ export default function AppNavigator() {
   const userIdRef = useRef<string | null>(null);
   const watchIdRef = useRef<number | null>(null);
 
+  // Fetches the user's full trail list from Supabase, updates the GPS verification
+  // refs, and syncs everything to the local cache + offline tile store.
+  // Safe to call multiple times — downloadOfflinePack is idempotent.
+  const syncTrails = useCallback(async (uid: string) => {
+    try {
+      const { data } = await supabase.rpc('get_user_trails_markers', { p_user_id: uid });
+      if (!data) return;
+      const markers = data as any[];
+
+      markers
+        .filter((t: any) => t.user_trail_status === 'completed')
+        .forEach((t: any) => completedIdsRef.current.add(t.id));
+
+      activeTrailsRef.current = markers
+        .filter((t: any) => t.user_trail_status === 'unlocked' && t.hidden_point)
+        .map((t: any) => ({
+          id: t.id,
+          name: t.name,
+          hidden_point:
+            typeof t.hidden_point === 'string'
+              ? JSON.parse(t.hidden_point)
+              : t.hidden_point,
+          distance_tolerance: t.distance_tolerance,
+        }));
+
+      // Persist all non-locked trails + map tiles for offline use
+      const cacheable = markers.filter((t: any) => t.user_trail_status !== 'locked');
+      if (cacheable.length > 0) {
+        saveAllTrailsToCache(cacheable).catch(() => {});
+      }
+      markers
+        .filter((t: any) => t.user_trail_status === 'unlocked' && t.hidden_point)
+        .forEach((t: any) => {
+          const hp = typeof t.hidden_point === 'string'
+            ? JSON.parse(t.hidden_point)
+            : t.hidden_point;
+          downloadOfflinePack(t.id, hp).catch(() => {});
+        });
+    } catch { /* offline — existing cache stays intact */ }
+  }, []);
+
   // --- Load unlocked trails on mount ---
   useEffect(() => {
     const init = async () => {
@@ -218,7 +260,7 @@ export default function AppNavigator() {
       const queue = await getCompletionQueue();
       queue.forEach(q => completedIdsRef.current.add(q.trailId));
 
-      // Load from local cache first (works offline)
+      // Seed GPS list from local cache immediately (works offline)
       const cached = await getCachedTrails();
       activeTrailsRef.current = cached
         .filter(t => t.user_trail_status === 'unlocked' && t.hidden_point)
@@ -229,32 +271,23 @@ export default function AppNavigator() {
           distance_tolerance: t.distance_tolerance,
         }));
 
-      // Refresh from Supabase
-      try {
-        const { data } = await supabase.rpc('get_user_trails_markers', { p_user_id: uid });
-        if (data) {
-          const markers = data as any[];
-          // Collect completed trail IDs so GPS never re-triggers them
-          markers
-            .filter((t: any) => t.user_trail_status === 'completed')
-            .forEach((t: any) => completedIdsRef.current.add(t.id));
-
-          activeTrailsRef.current = markers
-            .filter((t: any) => t.user_trail_status === 'unlocked' && t.hidden_point)
-            .map((t: any) => ({
-              id: t.id,
-              name: t.name,
-              hidden_point:
-                typeof t.hidden_point === 'string'
-                  ? JSON.parse(t.hidden_point)
-                  : t.hidden_point,
-              distance_tolerance: t.distance_tolerance,
-            }));
-        }
-      } catch { /* use cache */ }
+      // Full sync from server
+      await syncTrails(uid);
     };
     init();
-  }, []);
+  }, [syncTrails]);
+
+  // Re-sync whenever the app comes back to the foreground.
+  // This picks up trails the user unlocked on the web (or another device)
+  // while the app was open or backgrounded.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', nextState => {
+      if (nextState === 'active' && userIdRef.current) {
+        syncTrails(userIdRef.current);
+      }
+    });
+    return () => sub.remove();
+  }, [syncTrails]);
 
   // --- Payment result deep link events ---
   useEffect(() => {

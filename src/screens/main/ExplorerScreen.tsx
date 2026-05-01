@@ -883,6 +883,48 @@ function FilterModal({
     onStateChange(null);
   };
 
+  // Refs for each horizontal chip row
+  const stateScrollRef = useRef<ScrollView>(null);
+  const cityScrollRef = useRef<ScrollView>(null);
+  const distanceScrollRef = useRef<ScrollView>(null);
+  const difficultyScrollRef = useRef<ScrollView>(null);
+  const trailTypeScrollRef = useRef<ScrollView>(null);
+
+  // Chip x-offsets captured via onLayout
+  const stateOffsets = useRef<Record<string, number>>({});
+  const cityOffsets = useRef<Record<string, number>>({});
+  const distanceOffsets = useRef<Record<string, number>>({});
+  const difficultyOffsets = useRef<Record<string, number>>({});
+  const trailTypeOffsets = useRef<Record<string, number>>({});
+
+  // When modal opens, scroll each row to its active chip
+  useEffect(() => {
+    if (!visible) return;
+    const t = setTimeout(() => {
+      if (local.stateId != null) {
+        const x = stateOffsets.current[local.stateId];
+        if (x != null) stateScrollRef.current?.scrollTo({ x, animated: false });
+      }
+      if (local.cityId != null) {
+        const x = cityOffsets.current[local.cityId];
+        if (x != null) cityScrollRef.current?.scrollTo({ x, animated: false });
+      }
+      if (local.distanceMeters != null) {
+        const x = distanceOffsets.current[String(local.distanceMeters)];
+        if (x != null) distanceScrollRef.current?.scrollTo({ x, animated: false });
+      }
+      if (local.difficultyId != null) {
+        const x = difficultyOffsets.current[local.difficultyId];
+        if (x != null) difficultyScrollRef.current?.scrollTo({ x, animated: false });
+      }
+      if (local.trailTypeId != null) {
+        const x = trailTypeOffsets.current[local.trailTypeId];
+        if (x != null) trailTypeScrollRef.current?.scrollTo({ x, animated: false });
+      }
+    }, 150);
+    return () => clearTimeout(t);
+  }, [visible]);
+
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.filterOverlay}>
@@ -899,7 +941,7 @@ function FilterModal({
 
             {/* State */}
             <Text style={styles.filterSectionLabel}>State</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterChipScroll}>
+            <ScrollView ref={stateScrollRef} horizontal showsHorizontalScrollIndicator={false} style={styles.filterChipScroll}>
               <View style={styles.filterChipRow}>
                 <TouchableOpacity
                   style={[styles.filterChip, !local.stateId && styles.filterChipActive]}
@@ -912,6 +954,7 @@ function FilterModal({
                     key={s.id}
                     style={[styles.filterChip, local.stateId === s.id && styles.filterChipActive]}
                     onPress={() => handleStateSelect(s.id)}
+                    onLayout={e => { stateOffsets.current[s.id] = e.nativeEvent.layout.x; }}
                   >
                     <Text style={[styles.filterChipText, local.stateId === s.id && styles.filterChipTextActive]}>{s.name}</Text>
                   </TouchableOpacity>
@@ -921,7 +964,7 @@ function FilterModal({
 
             {/* City */}
             <Text style={[styles.filterSectionLabel, !local.stateId && styles.filterSectionLabelDisabled]}>City</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterChipScroll}>
+            <ScrollView ref={cityScrollRef} horizontal showsHorizontalScrollIndicator={false} style={styles.filterChipScroll}>
               <View style={styles.filterChipRow}>
                 <TouchableOpacity
                   style={[styles.filterChip, !local.cityId && styles.filterChipActive]}
@@ -936,6 +979,7 @@ function FilterModal({
                     style={[styles.filterChip, local.cityId === c.id && styles.filterChipActive]}
                     onPress={() => handleCitySelect(c)}
                     disabled={!local.stateId}
+                    onLayout={e => { cityOffsets.current[c.id] = e.nativeEvent.layout.x; }}
                   >
                     <Text style={[styles.filterChipText, local.cityId === c.id && styles.filterChipTextActive]}>{c.name}</Text>
                   </TouchableOpacity>
@@ -947,7 +991,7 @@ function FilterModal({
             <Text style={[styles.filterSectionLabel, !local.cityId && styles.filterSectionLabelDisabled]}>
               Max Distance
             </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterChipScroll}>
+            <ScrollView ref={distanceScrollRef} horizontal showsHorizontalScrollIndicator={false} style={styles.filterChipScroll}>
               <View style={styles.filterChipRow}>
                 <TouchableOpacity
                   style={[styles.filterChip, !local.distanceMeters && styles.filterChipActive]}
@@ -962,6 +1006,7 @@ function FilterModal({
                     style={[styles.filterChip, local.distanceMeters === milesToMeters(miles) && styles.filterChipActive]}
                     onPress={() => set('distanceMeters', milesToMeters(miles))}
                     disabled={!local.cityId}
+                    onLayout={e => { distanceOffsets.current[String(milesToMeters(miles))] = e.nativeEvent.layout.x; }}
                   >
                     <Text style={[styles.filterChipText, local.distanceMeters === milesToMeters(miles) && styles.filterChipTextActive]}>
                       {miles} mi
@@ -973,7 +1018,7 @@ function FilterModal({
 
             {/* Difficulty */}
             <Text style={styles.filterSectionLabel}>Difficulty</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterChipScroll}>
+            <ScrollView ref={difficultyScrollRef} horizontal showsHorizontalScrollIndicator={false} style={styles.filterChipScroll}>
               <View style={styles.filterChipRow}>
                 <TouchableOpacity
                   style={[styles.filterChip, !local.difficultyId && styles.filterChipActive]}
@@ -986,6 +1031,7 @@ function FilterModal({
                     key={d.id}
                     style={[styles.filterChip, local.difficultyId === d.id && styles.filterChipActive]}
                     onPress={() => set('difficultyId', d.id)}
+                    onLayout={e => { difficultyOffsets.current[d.id] = e.nativeEvent.layout.x; }}
                   >
                     <Text style={[styles.filterChipText, local.difficultyId === d.id && styles.filterChipTextActive]}>{d.name}</Text>
                   </TouchableOpacity>
@@ -995,7 +1041,7 @@ function FilterModal({
 
             {/* Trail Type */}
             <Text style={styles.filterSectionLabel}>Trail Type</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterChipScroll}>
+            <ScrollView ref={trailTypeScrollRef} horizontal showsHorizontalScrollIndicator={false} style={styles.filterChipScroll}>
               <View style={styles.filterChipRow}>
                 <TouchableOpacity
                   style={[styles.filterChip, !local.trailTypeId && styles.filterChipActive]}
@@ -1008,6 +1054,7 @@ function FilterModal({
                     key={t.id}
                     style={[styles.filterChip, local.trailTypeId === t.id && styles.filterChipActive]}
                     onPress={() => set('trailTypeId', t.id)}
+                    onLayout={e => { trailTypeOffsets.current[t.id] = e.nativeEvent.layout.x; }}
                   >
                     <Text style={[styles.filterChipText, local.trailTypeId === t.id && styles.filterChipTextActive]}>{t.name}</Text>
                   </TouchableOpacity>
@@ -1256,7 +1303,7 @@ export default function ExplorerScreen() {
         user_id: uid,
         max_distance_meters: f.distanceMeters,
         filter_state: f.stateId,
-        filter_city: f.cityId,
+        filter_city: null,
         filter_difficulty: f.difficultyId,
         filter_trail_type: f.trailTypeId,
         filter_user_status: f.status,
@@ -1283,6 +1330,39 @@ export default function ExplorerScreen() {
 
       // Remove server-completed trails — completed trails are never shown in Explorer
       apiTrails = apiTrails.filter(t => t.user_trail_status !== 'completed');
+
+      // Auto-sync trails unlocked on web: download offline map tiles + save to cache
+      // if the trail is unlocked on the server but not yet cached as unlocked locally.
+      const cachedUnlockedIds = new Set(
+        cached.filter(c => c.user_trail_status === 'unlocked').map(c => c.id),
+      );
+      for (const t of apiTrails) {
+        if (t.user_trail_status === 'unlocked' && !cachedUnlockedIds.has(t.id)) {
+          if (t.hidden_point) {
+            downloadOfflinePack(t.id, t.hidden_point).catch(() => {});
+          }
+          saveTrailToCache({
+            id: t.id,
+            name: t.name,
+            city: t.city,
+            state: t.state,
+            difficulty: t.difficulty,
+            distance_tolerance: t.distance_tolerance,
+            user_trail_status: 'unlocked',
+            hidden_point: t.hidden_point,
+            image_url: t.image_url,
+            trail_types: t.trail_types,
+            vehicle_types: t.vehicle_types,
+            overview: t.overview,
+            permit_requierd: t.permit_requierd,
+            trail_shape: t.trail_shape,
+            typically_open: t.typically_open,
+            navigation_details: t.navigation_details,
+            keys_to_unlock: t.keys_to_unlock,
+            distance_meters: t.distance_meters,
+          }).catch(() => {});
+        }
+      }
 
       // Sort: unlocked first (closest→furthest), then locked (closest→furthest)
       apiTrails.sort((a, b) => {
