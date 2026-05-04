@@ -103,7 +103,7 @@ export default function SignupScreen({ navigation }: Props) {
     }
 
     setLoading(false);
-    navigation.navigate('Login');
+    navigation.popToTop();
   };
 
   return (
@@ -214,7 +214,7 @@ export default function SignupScreen({ navigation }: Props) {
 
             <View style={styles.footer}>
               <Text style={styles.footerText}>Already have an account? </Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+              <TouchableOpacity onPress={() => navigation.goBack()}>
                 <Text style={styles.linkText}>Sign In</Text>
               </TouchableOpacity>
             </View>
