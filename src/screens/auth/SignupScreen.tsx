@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -217,6 +218,26 @@ export default function SignupScreen({ navigation }: Props) {
                 <Text style={styles.linkText}>Sign In</Text>
               </TouchableOpacity>
             </View>
+
+            <View style={styles.legalFooter}>
+              <Text style={styles.legalText}>
+                By creating an account, you agree to our{' '}
+                <Text
+                  style={styles.legalLink}
+                  onPress={() => Linking.openURL('https://www.ortqusa.com/terms-of-service')}
+                >
+                  Terms of Service
+                </Text>{' '}
+                and{' '}
+                <Text
+                  style={styles.legalLink}
+                  onPress={() => Linking.openURL('https://www.ortqusa.com/privacy-policy')}
+                >
+                  Privacy Policy
+                </Text>
+                .
+              </Text>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -318,5 +339,20 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.firaSansBold,
     fontSize: 14,
     color: Colors.orange,
+  },
+  legalFooter: {
+    marginTop: 16,
+    paddingHorizontal: 12,
+  },
+  legalText: {
+    fontFamily: Fonts.firaSansRegular,
+    fontSize: 12,
+    color: '#9AA0A6',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  legalLink: {
+    color: Colors.orange,
+    fontFamily: Fonts.firaSansBold,
   },
 });
