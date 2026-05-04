@@ -16,6 +16,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -682,6 +683,8 @@ function CreateGroupModal({
 // ---------------------------------------------------------------------------
 
 export default function CommunityScreen() {
+  const { width } = useWindowDimensions();
+  const isSmallScreen = width < 375;
   const navigation = useNavigation<NativeStackNavigationProp<CommunityStackParamList>>();
 
   const [activeTab, setActiveTab] = useState<Tab>('feed');
@@ -1041,9 +1044,9 @@ export default function CommunityScreen() {
   const ListHeader = (
     <>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>Community</Text>
-          <Text style={styles.headerSub}>Connect with fellow riders</Text>
+        <View style={styles.headerTitleGroup}>
+          <Text style={styles.headerTitle} numberOfLines={1}>Community</Text>
+          <Text style={styles.headerSub} numberOfLines={1}>Connect with fellow riders</Text>
         </View>
         <View style={styles.headerActions}>
           {/* Create Group button — disabled if not quest participant (matching web) */}
@@ -1061,14 +1064,16 @@ export default function CommunityScreen() {
             }}
           >
             <Icon name="people-outline" size={14} color={isQuestParticipant ? '#fff' : '#9AA0A6'} />
-            <Text
-              style={[
-                styles.createGroupBtnText,
-                !isQuestParticipant && styles.createGroupBtnTextDisabled,
-              ]}
-            >
-              New Group
-            </Text>
+            {!isSmallScreen && (
+              <Text
+                style={[
+                  styles.createGroupBtnText,
+                  !isQuestParticipant && styles.createGroupBtnTextDisabled,
+                ]}
+              >
+                New Group
+              </Text>
+            )}
           </TouchableOpacity>
 
           {activeTab === 'feed' && (
@@ -1212,9 +1217,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 4,
+    paddingTop: 8,
     paddingBottom: 12,
     backgroundColor: '#F5F5F5',
+  },
+  headerTitleGroup: {
+    flex: 1,
+    marginRight: 10,
   },
   headerTitle: {
     fontFamily: Fonts.gothamBold,
@@ -1223,7 +1232,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   headerSub: { fontFamily: Fonts.firaSansRegular, fontSize: 14, color: '#687076' },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 },
   composeBtn: {
     width: 40,
     height: 40,

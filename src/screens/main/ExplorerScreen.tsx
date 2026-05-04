@@ -1599,8 +1599,8 @@ export default function ExplorerScreen() {
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleGroup}>
-            <Text style={styles.headerTitle}>Explore Trails</Text>
-            <Text style={styles.headerSubtitle}>Discover your next off-road adventure</Text>
+            <Text style={styles.headerTitle} numberOfLines={1}>Explore Trails</Text>
+            <Text style={styles.headerSubtitle} numberOfLines={1}>Discover your next off-road adventure</Text>
           </View>
           <View style={styles.keysBadge}>
             <Icon name="key-outline" size={14} color={Colors.orange} />
@@ -1764,6 +1764,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 20,
     gap: 4,
+    flexShrink: 0,
+    marginLeft: 10,
   },
   keysBadgeText: { fontFamily: Fonts.gothamBold, fontSize: 16, color: Colors.orange },
   keysBadgeLabel: { fontFamily: Fonts.firaSansRegular, fontSize: 12, color: Colors.orange },
