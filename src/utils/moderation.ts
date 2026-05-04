@@ -64,3 +64,31 @@ export const getBlockedUsers = async (): Promise<string[]> => {
   const blockedStr = await AsyncStorage.getItem(BLOCKED_USERS_KEY);
   return blockedStr ? JSON.parse(blockedStr) : [];
 };
+
+/**
+ * Fetches blocks from Supabase and merges them into local storage.
+ * Call this on app start or login.
+ */
+export const syncBlockedUsers = async (userId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('user_blocks')
+      .select('blocked_id')
+      .eq('blocker_id', userId);
+
+    if (error) throw error;
+
+    if (data) {
+      const remoteIds = data.map(b => b.blocked_id);
+      const localIds = await getBlockedUsers();
+      
+      // Merge unique IDs
+      const merged = Array.from(new Set([...localIds, ...remoteIds]));
+      await AsyncStorage.setItem(BLOCKED_USERS_KEY, JSON.stringify(merged));
+      return merged;
+    }
+  } catch (err) {
+    console.error('Sync blocks failed:', err);
+  }
+  return getBlockedUsers();
+};

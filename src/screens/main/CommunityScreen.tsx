@@ -30,7 +30,7 @@ import { Fonts } from '../../theme/fonts';
 import { supabase } from '../../lib/supabase';
 import { CommunityStackParamList } from '../../navigation/CommunityStack';
 import { TermsModal } from '../../components/TermsModal';
-import { reportContent, blockUser, getBlockedUsers } from '../../utils/moderation';
+import { reportContent, blockUser, getBlockedUsers, syncBlockedUsers } from '../../utils/moderation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ---------------------------------------------------------------------------
@@ -726,6 +726,10 @@ export default function CommunityScreen() {
           .eq('status', 'active')
           .limit(1);
         setIsQuestParticipant((questData?.length ?? 0) > 0);
+        
+        // Sync blocked users from cloud
+        const synced = await syncBlockedUsers(uid);
+        setBlockedUsers(synced);
       }
     });
 

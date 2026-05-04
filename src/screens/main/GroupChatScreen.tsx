@@ -28,7 +28,7 @@ import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 import { supabase } from '../../lib/supabase';
 import { CommunityStackParamList } from '../../navigation/CommunityStack';
-import { reportContent, blockUser, getBlockedUsers } from '../../utils/moderation';
+import { reportContent, blockUser, getBlockedUsers, syncBlockedUsers } from '../../utils/moderation';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -909,6 +909,10 @@ export default function GroupChatScreen() {
           .eq('user_id', uid)
           .maybeSingle();
         setIsMember(!!membershipData);
+
+        // Sync blocked users from cloud
+        const synced = await syncBlockedUsers(uid);
+        setBlockedUsers(synced);
       }
 
       const blocked = await getBlockedUsers();

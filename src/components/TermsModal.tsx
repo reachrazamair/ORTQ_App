@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   Modal,
   ScrollView,
@@ -6,8 +5,8 @@ import {
   Text,
   TouchableOpacity,
   View,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../theme/colors';
 import { Fonts } from '../theme/fonts';
 
@@ -16,35 +15,76 @@ interface TermsModalProps {
   onAccept: () => void;
 }
 
-export const TermsModal: React.FC<TermsModalProps> = ({ visible, onAccept }) => {
+export const TermsModal: React.FC<TermsModalProps> = ({
+  visible,
+  onAccept,
+}) => {
   return (
     <Modal visible={visible} animationType="slide" transparent={false}>
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>End User License Agreement</Text>
         </View>
-        <ScrollView style={styles.content}>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.scrollContent}
+        >
           <Text style={styles.text}>
-            Welcome to ORTQ: Off Road Treasure Quest. By using this app, you agree to the following terms and conditions (EULA).
-            {"\n\n"}
+            Welcome to ORTQ: Off Road Treasure Quest. By using this app, you
+            agree to the following terms and conditions (EULA).
+            {'\n\n'}
             <Text style={styles.bold}>1. Objectionable Content Policy</Text>
-            {"\n"}
-            There is <Text style={styles.bold}>zero tolerance</Text> for objectionable content or abusive users. Users who post content that is deemed offensive, harassing, or illegal will have their accounts terminated immediately and their content removed.
-            {"\n\n"}
+            {'\n'}
+            There is <Text style={styles.bold}>zero tolerance</Text> for
+            objectionable content or abusive users. Users who post content that
+            is deemed offensive, harassing, or illegal will have their accounts
+            terminated immediately and their content removed.
+            {'\n\n'}
             <Text style={styles.bold}>2. User-Generated Content</Text>
-            {"\n"}
-            You are solely responsible for the content you post. By posting content, you grant ORTQ a non-exclusive license to display it within the app.
-            {"\n\n"}
-            <Text style={styles.bold}>3. Moderation</Text>
-            {"\n"}
-            ORTQ provides mechanisms to flag objectionable content and block abusive users. We act on reports within 24 hours.
-            {"\n\n"}
-            <Text style={styles.bold}>4. Safety</Text>
-            {"\n"}
-            Off-roading involves inherent risks. ORTQ is not responsible for any injury or property damage incurred while using the app or participating in quests.
-            {"\n\n"}
-            ... (Rest of the EULA text)
-            {"\n\n"}
+            {'\n'}
+            You are solely responsible for the content you post. By posting
+            content, you grant ORTQ a non-exclusive, worldwide, royalty-free
+            license to display, distribute, and reproduce your content within
+            the application for its intended purpose.
+            {'\n\n'}
+            <Text style={styles.bold}>3. Moderation and Reporting</Text>
+            {'\n'}
+            ORTQ provides mechanisms to flag objectionable content and block
+            abusive users. We act on all reports within 24 hours. Failure to
+            comply with these terms may result in a permanent ban.
+            {'\n\n'}
+            <Text style={styles.bold}>4. Safety and Risk Acknowledgment</Text>
+            {'\n'}
+            Off-roading involves inherent risks, including injury or death. ORTQ
+            is a tool for adventure but is not responsible for any injury,
+            property damage, or legal issues incurred while using the app or
+            participating in quests. Always follow local laws and trail
+            regulations.
+            {'\n\n'}
+            <Text style={styles.bold}>5. Subscription and Payments</Text>
+            {'\n'}
+            Access to certain features or "Quests" may require payment.
+            Subscriptions and one-time payments are managed via Stripe. Refund
+            policies are subject to Stripe and App Store guidelines.
+            {'\n\n'}
+            <Text style={styles.bold}>6. Intellectual Property</Text>
+            {'\n'}
+            The ORTQ name, logo, and software are the property of ORTQ. You may
+            not reverse engineer, decompile, or attempt to extract the source
+            code of the application.
+            {'\n\n'}
+            <Text style={styles.bold}>7. Privacy</Text>
+            {'\n'}
+            Your privacy is important to us. We collect location data to provide
+            trail tracking and discovery features. Please refer to our full
+            Privacy Policy for details on how we handle your data.
+            {'\n\n'}
+            <Text style={styles.bold}>8. Termination</Text>
+            {'\n'}
+            We reserve the right to terminate or suspend access to our service
+            immediately, without prior notice or liability, for any reason
+            whatsoever, including without limitation if you breach the Terms.
+            {'\n\n'}
             By clicking "Accept", you agree to these terms.
           </Text>
         </ScrollView>
@@ -76,7 +116,10 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  scrollContent: {
     padding: 20,
+    paddingBottom: 40,
   },
   text: {
     fontFamily: Fonts.firaSansRegular,
