@@ -177,5 +177,5 @@ export default function RootNavigator() {
     );
   }
 
-  return session ? <AppNavigator /> : <AuthNavigator />;
+  return <AppNavigator session={session} />;
 }

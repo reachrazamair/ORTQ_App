@@ -28,6 +28,7 @@ import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 import { supabase } from '../../lib/supabase';
 import { CommunityStackParamList } from '../../navigation/CommunityStack';
+import { reportContent, blockUser, getBlockedUsers } from '../../utils/moderation';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -146,7 +147,19 @@ function validateGroupForm(title: string, description: string): Record<string, s
 // MessageBubble
 // ---------------------------------------------------------------------------
 
-function MessageBubble({ message, isOwn }: { message: Message; isOwn: boolean }) {
+function MessageBubble({ 
+  message, 
+  isOwn, 
+  currentUserId,
+  onReport,
+  onBlock
+}: { 
+  message: Message; 
+  isOwn: boolean;
+  currentUserId: string | null;
+  onReport: (id: string) => void;
+  onBlock: (userId: string) => void;
+}) {
   const name = getDisplayName(message);
   const initials = getInitials(name);
   const avatarUri = getAvatarUrl(message.profiles?.profile_image_url ?? null);
@@ -179,9 +192,24 @@ function MessageBubble({ message, isOwn }: { message: Message; isOwn: boolean })
       </View>
     ) : null;
 
+  const handleOptions = () => {
+    const options = ['Report Message'];
+    if (message.user_id !== currentUserId) options.push('Block User');
+    options.push('Cancel');
+
+    Alert.alert('Options', 'What would you like to do?', options.map(opt => ({
+      text: opt,
+      style: opt === 'Cancel' ? 'cancel' : 'default',
+      onPress: () => {
+        if (opt === 'Report Message') onReport(message.id);
+        if (opt === 'Block User') onBlock(message.user_id);
+      }
+    })));
+  };
+
   if (isOwn) {
     return (
-      <View style={styles.bubbleRowOwn}>
+      <TouchableOpacity style={styles.bubbleRowOwn} onLongPress={handleOptions} activeOpacity={0.9}>
         <View style={styles.bubbleOwn}>
           {message.content ? (
             <Text style={styles.bubbleTextOwn}>{message.content}</Text>
@@ -192,12 +220,12 @@ function MessageBubble({ message, isOwn }: { message: Message; isOwn: boolean })
           <FileAttachment dark />
           <Text style={styles.bubbleTimeOwn}>{formatTime(message.created_at)}</Text>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   }
 
   return (
-    <View style={styles.bubbleRow}>
+    <TouchableOpacity style={styles.bubbleRow} onLongPress={handleOptions} activeOpacity={0.9}>
       {avatarUri ? (
         <Image source={{ uri: avatarUri }} style={styles.bubbleAvatar} />
       ) : (
@@ -216,7 +244,7 @@ function MessageBubble({ message, isOwn }: { message: Message; isOwn: boolean })
         <FileAttachment dark={false} />
         <Text style={styles.bubbleTimeOther}>{formatTime(message.created_at)}</Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -770,6 +798,7 @@ export default function GroupChatScreen() {
   const [sending, setSending] = useState(false);
   const [selectedFile, setSelectedFile] = useState<SelectedFile | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
 
   // Modals
   const [isInviteOpen, setIsInviteOpen] = useState(false);
@@ -882,6 +911,9 @@ export default function GroupChatScreen() {
         setIsMember(!!membershipData);
       }
 
+      const blocked = await getBlockedUsers();
+      setBlockedUsers(blocked);
+
       // Group details
       const { data: groupData } = await supabase
         .from('community_groups')
@@ -968,6 +1000,19 @@ export default function GroupChatScreen() {
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 100);
     }
   }, [loadingMessages]);
+
+  const handleReportMessage = useCallback((msgId: string) => {
+    if (!currentUserId) return;
+    reportContent('message', msgId, currentUserId);
+  }, [currentUserId]);
+
+  const handleBlockUser = useCallback(async (userId: string) => {
+    await blockUser(userId, currentUserId);
+    const blocked = await getBlockedUsers();
+    setBlockedUsers(blocked);
+  }, [currentUserId]);
+
+  const filteredMessages = messages.filter(m => !blockedUsers.includes(m.user_id));
 
   // ---------------------------------------------------------------------------
   // Send message with optional image
@@ -1314,10 +1359,16 @@ export default function GroupChatScreen() {
         ) : (
           <FlatList
             ref={flatListRef}
-            data={messages}
+            data={filteredMessages}
             keyExtractor={item => item.id}
             renderItem={({ item }) => (
-              <MessageBubble message={item} isOwn={item.user_id === currentUserId} />
+              <MessageBubble
+                message={item}
+                isOwn={item.user_id === currentUserId}
+                currentUserId={currentUserId}
+                onReport={handleReportMessage}
+                onBlock={handleBlockUser}
+              />
             )}
             contentContainerStyle={styles.messagesList}
             showsVerticalScrollIndicator={false}

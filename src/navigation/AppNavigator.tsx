@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Session } from '@supabase/supabase-js';
 import {
   AppState,
   Modal,
@@ -197,7 +198,9 @@ function CompletionModal({
 // Main Navigator
 // ---------------------------------------------------------------------------
 
-export default function AppNavigator() {
+import AuthNavigator from './AuthNavigator';
+
+export default function AppNavigator({ session }: { session: Session | null }) {
   const [completedInfo, setCompletedInfo] = useState<CompletedInfo | null>(null);
   const [paymentResult, setPaymentResult] = useState<'success' | 'cancel' | null>(null);
 
@@ -251,10 +254,13 @@ export default function AppNavigator() {
   // --- Load unlocked trails on mount ---
   useEffect(() => {
     const init = async () => {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const uid = sessionData.session?.user?.id ?? null;
+      const uid = session?.user?.id ?? null;
       userIdRef.current = uid;
-      if (!uid) return;
+      if (!uid) {
+        // Clear active trails if guest
+        activeTrailsRef.current = [];
+        return;
+      }
 
       // Pre-populate completedIds from the offline queue so we never re-trigger
       const queue = await getCompletionQueue();
@@ -478,7 +484,7 @@ export default function AppNavigator() {
         />
         <Tab.Screen
           name="Community"
-          component={CommunityStack}
+          component={session ? CommunityStack : AuthNavigator}
           options={{
             tabBarIcon: ({ color, size }) => (
               <Icon name="people-outline" size={size} color={color} />
@@ -487,7 +493,7 @@ export default function AppNavigator() {
         />
         <Tab.Screen
           name="Leaderboard"
-          component={LeaderboardScreen}
+          component={session ? LeaderboardScreen : AuthNavigator}
           options={{
             tabBarLabel: 'Ranks',
             tabBarIcon: ({ color, size }) => (
@@ -497,7 +503,7 @@ export default function AppNavigator() {
         />
         <Tab.Screen
           name="Profile"
-          component={ProfileStack}
+          component={session ? ProfileStack : AuthNavigator}
           options={{
             tabBarIcon: ({ color, size }) => (
               <Icon name="person-outline" size={size} color={color} />

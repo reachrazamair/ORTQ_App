@@ -246,9 +246,12 @@ export default function MapScreen() {
     const init = async () => {
       // getSession reads from local storage — works offline unlike getUser()
       const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData.session?.user) return;
-      const uid = sessionData.session.user.id;
+      const uid = sessionData.session?.user?.id ?? null;
       setUserId(uid);
+      if (!uid) {
+        setLoading(false);
+        return;
+      }
 
       // Pre-populate completedIds from the queue so GPS never re-triggers
       // a trail the user already completed offline (even before Supabase syncs)

@@ -28,6 +28,9 @@ import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 import { supabase } from '../../lib/supabase';
 import { CommunityStackParamList } from '../../navigation/CommunityStack';
+import { TermsModal } from '../../components/TermsModal';
+import { reportContent, blockUser, getBlockedUsers } from '../../utils/moderation';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -125,10 +128,14 @@ function PostCard({
   post,
   currentUserId,
   onDelete,
+  onReport,
+  onBlock,
 }: {
   post: Post;
   currentUserId: string | null;
   onDelete: (id: string) => void;
+  onReport: (id: string) => void;
+  onBlock: (userId: string) => void;
 }) {
   const name = getDisplayName(post);
   const initials = getInitials(name);
@@ -156,6 +163,27 @@ function PostCard({
           <Text style={styles.postAuthor}>{name}</Text>
           <Text style={styles.postTime}>{formatRelativeTime(post.created_at)}</Text>
         </View>
+        <TouchableOpacity 
+          style={styles.postMenuBtn} 
+          onPress={() => {
+            const options = ['Report Content'];
+            if (post.user_id !== currentUserId) options.push('Block User');
+            if (post.user_id === currentUserId) options.push('Delete Post');
+            options.push('Cancel');
+
+            Alert.alert('Options', 'What would you like to do?', options.map(opt => ({
+              text: opt,
+              style: opt === 'Delete Post' ? 'destructive' : opt === 'Cancel' ? 'cancel' : 'default',
+              onPress: () => {
+                if (opt === 'Report Content') onReport(post.id);
+                if (opt === 'Block User') onBlock(post.user_id);
+                if (opt === 'Delete Post') onDelete(post.id);
+              }
+            })));
+          }}
+        >
+          <Icon name="ellipsis-horizontal" size={20} color={Colors.blueGrey} />
+        </TouchableOpacity>
       </View>
       <Text style={styles.postContent}>{post.content}</Text>
       {post.image_url ? (
@@ -659,6 +687,8 @@ export default function CommunityScreen() {
   const [activeTab, setActiveTab] = useState<Tab>('feed');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isQuestParticipant, setIsQuestParticipant] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
 
   // Feed
   const [posts, setPosts] = useState<Post[]>([]);
@@ -695,6 +725,18 @@ export default function CommunityScreen() {
         setIsQuestParticipant((questData?.length ?? 0) > 0);
       }
     });
+
+    const checkTerms = async () => {
+      const accepted = await AsyncStorage.getItem('ortq_terms_accepted');
+      if (!accepted) setShowTerms(true);
+    };
+    checkTerms();
+
+    const loadBlocks = async () => {
+      const blocked = await getBlockedUsers();
+      setBlockedUsers(blocked);
+    };
+    loadBlocks();
   }, []);
 
   // ---------------------------------------------------------------------------
@@ -734,6 +776,22 @@ export default function CommunityScreen() {
     const { error } = await supabase.from('community_posts').delete().eq('id', postId);
     if (!error) setPosts(prev => prev.filter(p => p.id !== postId));
   }, []);
+
+  const handleReportPost = useCallback((postId: string) => {
+    if (!currentUserId) {
+      Alert.alert('Sign In Required', 'Please sign in to report content.');
+      return;
+    }
+    reportContent('post', postId, currentUserId);
+  }, [currentUserId]);
+
+  const handleBlockUser = useCallback(async (userId: string) => {
+    await blockUser(userId, currentUserId);
+    const blocked = await getBlockedUsers();
+    setBlockedUsers(blocked);
+  }, [currentUserId]);
+
+  const filteredPosts = posts.filter(p => !blockedUsers.includes(p.user_id));
 
   // ---------------------------------------------------------------------------
   // My Groups
@@ -953,7 +1011,7 @@ export default function CommunityScreen() {
   // ---------------------------------------------------------------------------
 
   const listData =
-    activeTab === 'feed' ? posts : activeTab === 'groups' ? myGroups : filteredGroups;
+    activeTab === 'feed' ? filteredPosts : activeTab === 'groups' ? myGroups : filteredGroups;
   const isLoadingTab =
     activeTab === 'feed'
       ? loadingPosts
@@ -1068,7 +1126,13 @@ export default function CommunityScreen() {
         renderItem={({ item }) => (
           <View style={styles.itemPad}>
             {activeTab === 'feed' ? (
-              <PostCard post={item} currentUserId={currentUserId} onDelete={handleDeletePost} />
+              <PostCard 
+                post={item} 
+                currentUserId={currentUserId} 
+                onDelete={handleDeletePost} 
+                onReport={handleReportPost}
+                onBlock={handleBlockUser}
+              />
             ) : (
               <GroupCard
                 group={item}
@@ -1123,6 +1187,13 @@ export default function CommunityScreen() {
           navigation.navigate('GroupChat', { groupId, groupName });
           loadMyGroups();
         }}
+      />
+      <TermsModal 
+        visible={showTerms} 
+        onAccept={async () => {
+          await AsyncStorage.setItem('ortq_terms_accepted', 'true');
+          setShowTerms(false);
+        }} 
       />
     </SafeAreaView>
   );
@@ -1239,6 +1310,10 @@ const styles = StyleSheet.create({
   postImage: { width: '100%', height: 200, borderRadius: 10, marginTop: 10 },
 
   // Group card
+  postMenuBtn: {
+    padding: 8,
+    marginRight: -8,
+  },
   groupCard: {
     flexDirection: 'row',
     alignItems: 'center',

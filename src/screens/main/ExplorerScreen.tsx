@@ -49,6 +49,7 @@ const STATUS_OPTIONS = ['All', 'locked', 'unlocked'] as const;
 type TrailStatus = 'locked' | 'unlocked' | 'completed';
 
 type HiddenPoint = {
+  id: string;
   latitude: number;
   longitude: number;
   keys_awarded: number;
@@ -1389,9 +1390,12 @@ export default function ExplorerScreen() {
       if (pageNum === 0) {
         const cached = await getCachedTrails();
         // Completed trails are excluded from Explorer entirely
-        const filtered = f.status === 'unlocked'
-          ? cached.filter(t => t.user_trail_status === 'unlocked')
-          : cached.filter(t => t.user_trail_status === 'unlocked' || t.user_trail_status === 'locked');
+        const filtered =
+          f.status === 'unlocked'
+            ? cached.filter(t => t.user_trail_status === 'unlocked')
+            : f.status === 'locked'
+            ? [] // We don't cache locked trails
+            : cached.filter(t => t.user_trail_status === 'unlocked');
         if (filtered.length > 0) {
           const asTrails: Trail[] = filtered.map(t => ({
             id: t.id,
@@ -1501,7 +1505,10 @@ export default function ExplorerScreen() {
   }, [hasMore, userId, userLat, userLon, page, filters, loadPage]);
 
   const handleUnlock = useCallback(async (trail: Trail) => {
-    if (!userId) return;
+    if (!userId) {
+      Alert.alert('Sign In Required', 'Please sign in to unlock trails and earn rewards.');
+      return;
+    }
 
     Alert.alert(
       'Unlock Trail',
@@ -1574,7 +1581,13 @@ export default function ExplorerScreen() {
       activeQuests={activeQuests}
       onShowMore={t => setSelectedTrail(t)}
       onUnlock={handleUnlock}
-      onJoinQuest={() => setShowJoinQuest(true)}
+      onJoinQuest={() => {
+        if (!userId) {
+          Alert.alert('Sign In Required', 'Please sign in to join a quest and participate in challenges.');
+          return;
+        }
+        setShowJoinQuest(true);
+      }}
       onViewOnMap={trailId => navigation.navigate('Map', { trailId })}
     />
   ), [variants, userKeys, isUserParticipant, activeQuests, handleUnlock]);
