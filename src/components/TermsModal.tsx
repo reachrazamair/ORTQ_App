@@ -60,7 +60,7 @@ export const TermsModal: React.FC<TermsModalProps> = ({
             {'\n\n'}
             <Text style={styles.bold}>7. PRIVACY POLICY SUMMARY</Text>
             {'\n'}
-            We collect Account Data (email, name) and Precise Location Data (GPS) to verify quest arrivals. We do not sell your personal data. You have the right to delete your account and all associated data at any time via Profile > Account Settings.
+            We collect Account Data (email, name) and Precise Location Data (GPS) to verify quest arrivals. We do not sell your personal data. You have the right to delete your account and all associated data at any time via Profile {' > '} Account Settings.
             {'\n\n'}
             <Text style={styles.bold}>8. CONTACT US</Text>
             {'\n'}
