@@ -1292,7 +1292,7 @@ export default function ExplorerScreen() {
   }, [hasLocation, getLocation]);
 
   // --- Fetch trails ---
-  const loadPage = useCallback(async (pageNum: number, f: Filters, lat: number, lon: number, uid: string) => {
+  const loadPage = useCallback(async (pageNum: number, f: Filters, lat: number, lon: number, uid: string | null) => {
     setLoadingTrails(true);
     // When a city is selected, use that city's coordinates as the distance reference point
     const refLat = f.cityLat ?? lat;
@@ -1435,8 +1435,8 @@ export default function ExplorerScreen() {
 
   // Reload page 0 when location + userId are ready, or filters change
   useEffect(() => {
-    if (userId && userLat !== null && userLon !== null) {
-      loadPage(0, filters, userLat, userLon, userId);
+    if (userLat !== null && userLon !== null) {
+      loadPage(0, filters, userLat, userLon, userId ?? '');
     }
   }, [userId, userLat, userLon, filters, loadPage]);
 
@@ -1455,11 +1455,13 @@ export default function ExplorerScreen() {
   // (general freshness — covers background syncs and other server-side changes)
   useFocusEffect(
     useCallback(() => {
-      if (!userId || userLat === null || userLon === null) return;
+      if (userLat === null || userLon === null) return;
       loadPage(0, filtersRef.current, userLat, userLon, userId);
-      getProfile(userId).then(p => {
-        if (p) setUserKeys(p.keys ?? 0);
-      }).catch(() => {});
+      if (userId) {
+        getProfile(userId).then(p => {
+          if (p) setUserKeys(p.keys ?? 0);
+        }).catch(() => {});
+      }
     }, [userId, userLat, userLon, loadPage]),
   );
 
@@ -1479,7 +1481,6 @@ export default function ExplorerScreen() {
   }, []);
 
   const handleRefresh = useCallback(async () => {
-    if (!userId) return;
     setRefreshing(true);
     // If location was never obtained, try again before loading trails
     if (userLatRef.current === null || userLonRef.current === null) {
@@ -1490,16 +1491,18 @@ export default function ExplorerScreen() {
     const lon = userLonRef.current;
     if (lat !== null && lon !== null) {
       await loadPage(0, filtersRef.current, lat, lon, userId);
-      try {
-        const p = await getProfile(userId);
-        if (p) setUserKeys(p.keys ?? 0);
-      } catch {}
+      if (userId) {
+        try {
+          const p = await getProfile(userId);
+          if (p) setUserKeys(p.keys ?? 0);
+        } catch {}
+      }
     }
     setRefreshing(false);
   }, [userId, loadPage, getLocation]);
 
   const handleLoadMore = useCallback(() => {
-    if (hasMore && userId && userLat !== null && userLon !== null) {
+    if (hasMore && userLat !== null && userLon !== null) {
       loadPage(page + 1, filters, userLat, userLon, userId);
     }
   }, [hasMore, userId, userLat, userLon, page, filters, loadPage]);
