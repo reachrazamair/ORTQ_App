@@ -279,7 +279,7 @@ export default function EditProfileScreen({ navigation }: Props) {
           PermissionsAndroid.PERMISSIONS.CAMERA,
           {
             title: 'Camera Permission',
-            message: 'This app needs camera access to take photos.',
+            message: 'ORTQ needs camera access to let you capture and share photos of your off-road adventures and update your profile picture.',
             buttonPositive: 'Allow',
             buttonNegative: 'Deny',
           },

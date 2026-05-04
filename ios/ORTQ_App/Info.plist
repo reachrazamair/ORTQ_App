@@ -43,11 +43,11 @@
 		<true/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>We need camera access to let you take a profile photo.</string>
+	<string>ORTQ needs camera access to let you capture and share photos of your off-road adventures and update your profile picture.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>ORTQ needs your location to show nearby off-road trails.</string>
+	<string>ORTQ uses your location to discover nearby off-road trails, track your progress during quests, and provide real-time GPS navigation while you're on the trail.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>We need photo library access to let you choose a profile photo.</string>
+	<string>ORTQ needs access to your photo library to let you upload trail photos and choose a profile or background image.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UIAppFonts</key>
