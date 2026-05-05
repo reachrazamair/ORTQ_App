@@ -347,16 +347,29 @@ function ComposeModal({
     let uploadedImageUrl: string | null = null;
     if (imageUri) {
       try {
-        const fetchResponse = await fetch(imageUri);
-        const blob = await fetchResponse.blob();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error('Not authenticated');
         const ext = imageType.split('/')[1] ?? 'jpg';
         const fileName = `${Date.now()}-photo.${ext}`;
-        const { error: uploadError } = await supabase.storage
-          .from('community_posts')
-          .upload(fileName, blob, { contentType: imageType, upsert: false });
-        if (uploadError) throw new Error(uploadError.message);
+        const formData = new FormData();
+        formData.append('file', { uri: imageUri, type: imageType, name: fileName } as any);
+        const uploadResponse = await fetch(
+          `${Config.SUPABASE_URL}/storage/v1/object/community_posts/${fileName}`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+              apikey: Config.SUPABASE_KEY!,
+            },
+            body: formData,
+          },
+        );
+        if (!uploadResponse.ok) {
+          const errText = await uploadResponse.text();
+          throw new Error(errText);
+        }
         uploadedImageUrl = fileName;
-      } catch {
+      } catch (err) {
         Alert.alert('Upload Failed', 'Failed to upload image. Please try again.');
         setLoading(false);
         return;
@@ -518,17 +531,27 @@ function CreateGroupModal({
     let headerImageUrl: string | null = null;
     if (headerImageUri) {
       try {
-        const fetchResponse = await fetch(headerImageUri);
-        const blob = await fetchResponse.blob();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error('Not authenticated');
         const ext = headerImageType.split('/')[1] ?? 'jpg';
         const fileName = `${Date.now()}-header.${ext}`;
-        const { error: uploadError } = await supabase.storage
-          .from('community_groups')
-          .upload(fileName, blob, { contentType: headerImageType, upsert: false });
-        if (uploadError) throw new Error(uploadError.message);
+        const formData = new FormData();
+        formData.append('file', { uri: headerImageUri, type: headerImageType, name: fileName } as any);
+        const uploadResponse = await fetch(
+          `${Config.SUPABASE_URL}/storage/v1/object/community_groups/${fileName}`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+              apikey: Config.SUPABASE_KEY!,
+            },
+            body: formData,
+          },
+        );
+        if (!uploadResponse.ok) throw new Error(await uploadResponse.text());
         headerImageUrl = fileName;
-      } catch {
-        Alert.alert('Upload Failed', 'Failed to upload header image. Please try again.');
+      } catch (err) {
+        Alert.alert('Upload Failed', err instanceof Error ? err.message : 'Failed to upload header image. Please try again.');
         setLoading(false);
         return;
       }
