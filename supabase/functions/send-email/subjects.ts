@@ -10,6 +10,10 @@ export function generateSubject(templateType: string, data: Record<string, any>)
       return `Request to join "${data.groupName}" not approved | Off-Road Treasure Quest`;
     case 'welcome':
       return 'Welcome to Off Road Treasure Quest! Your Adventure Starts Now!';
+    case 'moderation_report':
+      return data.reportType === 'block'
+        ? '[Action Required] User Block Report | ORTQ Moderation'
+        : '[Action Required] Content Flag Report | ORTQ Moderation';
     default:
       return data.subject || 'Notification | Off-Road Treasure Quest';
   }

@@ -24,11 +24,13 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { launchImageLibrary } from 'react-native-image-picker';
 import DocumentPicker from 'react-native-document-picker';
 import Config from 'react-native-config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 import { supabase } from '../../lib/supabase';
 import { CommunityStackParamList } from '../../navigation/CommunityStack';
-import { reportContent, blockUser, getBlockedUsers, syncBlockedUsers } from '../../utils/moderation';
+import { TermsModal } from '../../components/TermsModal';
+import { reportContent, blockUser, getBlockedUsers, syncBlockedUsers, containsBlockedContent } from '../../utils/moderation';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -804,6 +806,7 @@ export default function GroupChatScreen() {
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedMemberProfile, setSelectedMemberProfile] = useState<MemberProfile | null>(null);
+  const [showTerms, setShowTerms] = useState(false);
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -943,6 +946,10 @@ export default function GroupChatScreen() {
       }
 
       setLoadingInit(false);
+
+      // Show EULA if not yet accepted — required by App Store Guideline 1.2
+      const accepted = await AsyncStorage.getItem('ortq_terms_accepted');
+      if (!accepted) setShowTerms(true);
     };
     init();
   }, [groupId, loadMembers]);
@@ -1026,6 +1033,14 @@ export default function GroupChatScreen() {
     const trimmed = text.trim();
     if (!trimmed && !selectedFile) return;
     if (!currentUserId || sending) return;
+
+    if (trimmed && containsBlockedContent(trimmed)) {
+      Alert.alert(
+        'Objectionable Content',
+        'Your message contains content that violates our community guidelines. Please edit before sending.',
+      );
+      return;
+    }
 
     if (!isQuestParticipant) {
       Alert.alert(
@@ -1501,6 +1516,13 @@ export default function GroupChatScreen() {
         member={selectedMemberProfile}
         visible={!!selectedMemberProfile}
         onClose={() => setSelectedMemberProfile(null)}
+      />
+      <TermsModal
+        visible={showTerms}
+        onAccept={async () => {
+          await AsyncStorage.setItem('ortq_terms_accepted', 'true');
+          setShowTerms(false);
+        }}
       />
     </SafeAreaView>
   );

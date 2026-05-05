@@ -98,6 +98,35 @@ export function generateEmailHTML(templateType: string, data: Record<string, any
     case 'welcome':
       return generateWelcomeEmailTemplate();
 
+    case 'moderation_report':
+      return generateBaseTemplate({
+        title: 'Moderation Report',
+        heading: data.reportType === 'block' ? 'User Block Report' : 'Content Flag Report',
+        content: `
+          <p style="font-size:16px; color:#2F272A; margin:0 0 12px;">
+            A moderation action was taken in your app and requires your attention within 24 hours.
+          </p>
+          <div style="background-color:#FFF3E1; padding:16px; border-radius:8px; margin:0 0 16px;">
+            <p style="font-size:14px; color:#2F272A; margin:0 0 8px;">
+              <strong>Action:</strong> ${data.reportType === 'block' ? 'User Blocked' : 'Content Flagged'}
+            </p>
+            ${data.contentType ? `<p style="font-size:14px; color:#2F272A; margin:0 0 8px;"><strong>Content Type:</strong> ${data.contentType}</p>` : ''}
+            ${data.contentId ? `<p style="font-size:14px; color:#2F272A; margin:0 0 8px;"><strong>Content ID:</strong> ${data.contentId}</p>` : ''}
+            ${data.reportedUserId ? `<p style="font-size:14px; color:#2F272A; margin:0 0 8px;"><strong>Reported User ID:</strong> ${data.reportedUserId}</p>` : ''}
+            <p style="font-size:14px; color:#2F272A; margin:0 0 8px;">
+              <strong>Reported By (User ID):</strong> ${data.reportedByUserId}
+            </p>
+            <p style="font-size:14px; color:#2F272A; margin:0;">
+              <strong>Timestamp:</strong> ${data.timestamp}
+            </p>
+          </div>
+          <p style="font-size:14px; color:#2F272A; margin:0;">
+            Per your Terms of Service, please review this report and take appropriate action within 24 hours.
+            If the content violates community guidelines, remove it and eject the offending user from the platform.
+          </p>
+        `,
+      });
+
     default:
       return '<p>Email notification</p>';
   }

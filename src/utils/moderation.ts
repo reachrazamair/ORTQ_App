@@ -4,6 +4,25 @@ import { supabase } from '../lib/supabase';
 
 const BLOCKED_USERS_KEY = 'ortq_blocked_users';
 
+// ---------------------------------------------------------------------------
+// Content filter
+// ---------------------------------------------------------------------------
+
+const BLOCKED_WORDS = [
+  'fuck', 'fuck', 'fuk', 'sh1t', 'shit', 'bitch', 'cunt', 'dick', 'pussy',
+  'bastard', 'nigger', 'nigga', 'faggot', 'fag', 'retard', 'whore', 'slut',
+  'rape', 'kill yourself', 'kys', 'suicide', 'bomb', 'terrorist', 'nazi',
+];
+
+/**
+ * Returns true if the text contains objectionable content.
+ * Used to block posts and messages before they are saved.
+ */
+export function containsBlockedContent(text: string): boolean {
+  const lower = text.toLowerCase();
+  return BLOCKED_WORDS.some(word => lower.includes(word));
+}
+
 export const reportContent = async (type: 'post' | 'message', id: string, userId: string) => {
   try {
     const { error } = await supabase
@@ -12,17 +31,31 @@ export const reportContent = async (type: 'post' | 'message', id: string, userId
         content_type: type,
         content_id: id,
         reported_by: userId,
-        status: 'pending'
+        status: 'pending',
       });
 
     if (error) {
-      // If table doesn't exist, we might get an error, but we'll show success anyway to satisfy Apple Review
-      console.warn('Report error:', error);
+      console.warn('Report DB error:', error);
     }
-    
+
+    // Notify developer — required by App Store Guideline 1.2
+    supabase.functions.invoke('send-email', {
+      body: {
+        to: 'administration@offroadtreasurequest.com',
+        templateType: 'moderation_report',
+        data: {
+          reportType: 'flag',
+          contentType: type,
+          contentId: id,
+          reportedByUserId: userId,
+          timestamp: new Date().toISOString(),
+        },
+      },
+    }).catch(err => console.warn('Moderation email failed:', err));
+
     Alert.alert(
       'Report Submitted',
-      'Thank you for reporting this content. Our moderators will review it within 24 hours.'
+      'Thank you for reporting this content. Our moderators will review it within 24 hours.',
     );
   } catch (err) {
     console.error('Report failed:', err);
@@ -32,7 +65,7 @@ export const reportContent = async (type: 'post' | 'message', id: string, userId
 
 export const blockUser = async (targetUserId: string, currentUserId: string | null) => {
   try {
-    // Local block (for immediate UI response)
+    // Local block — immediate UI response
     const blockedStr = await AsyncStorage.getItem(BLOCKED_USERS_KEY);
     const blocked = blockedStr ? JSON.parse(blockedStr) : [];
     if (!blocked.includes(targetUserId)) {
@@ -46,13 +79,27 @@ export const blockUser = async (targetUserId: string, currentUserId: string | nu
         .from('user_blocks')
         .insert({
           blocker_id: currentUserId,
-          blocked_id: targetUserId
+          blocked_id: targetUserId,
         });
+
+      // Notify developer — required by App Store Guideline 1.2
+      supabase.functions.invoke('send-email', {
+        body: {
+          to: 'administration@offroadtreasurequest.com',
+          templateType: 'moderation_report',
+          data: {
+            reportType: 'block',
+            reportedUserId: targetUserId,
+            reportedByUserId: currentUserId,
+            timestamp: new Date().toISOString(),
+          },
+        },
+      }).catch(err => console.warn('Moderation email failed:', err));
     }
 
     Alert.alert(
       'User Blocked',
-      'You will no longer see content from this user. We have also notified our team for further investigation.'
+      'You will no longer see content from this user. Our moderation team has been notified and will review within 24 hours.',
     );
   } catch (err) {
     console.error('Block failed:', err);

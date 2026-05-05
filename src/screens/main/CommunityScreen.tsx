@@ -30,7 +30,7 @@ import { Fonts } from '../../theme/fonts';
 import { supabase } from '../../lib/supabase';
 import { CommunityStackParamList } from '../../navigation/CommunityStack';
 import { TermsModal } from '../../components/TermsModal';
-import { reportContent, blockUser, getBlockedUsers, syncBlockedUsers } from '../../utils/moderation';
+import { reportContent, blockUser, getBlockedUsers, syncBlockedUsers, containsBlockedContent } from '../../utils/moderation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ---------------------------------------------------------------------------
@@ -332,6 +332,13 @@ function ComposeModal({
     }
     if (trimmed.length > 2000) {
       Alert.alert('Too long', 'Posts cannot exceed 2000 characters.');
+      return;
+    }
+    if (containsBlockedContent(trimmed)) {
+      Alert.alert(
+        'Objectionable Content',
+        'Your post contains content that violates our community guidelines. Please review and edit before posting.',
+      );
       return;
     }
 
