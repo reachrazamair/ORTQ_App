@@ -16,7 +16,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -32,6 +31,7 @@ import { CommunityStackParamList } from '../../navigation/CommunityStack';
 import { TermsModal } from '../../components/TermsModal';
 import { reportContent, blockUser, getBlockedUsers, syncBlockedUsers, containsBlockedContent } from '../../utils/moderation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useResponsive } from '../../hooks/useResponsive';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -713,8 +713,7 @@ function CreateGroupModal({
 // ---------------------------------------------------------------------------
 
 export default function CommunityScreen() {
-  const { width } = useWindowDimensions();
-  const isSmallScreen = width < 375;
+  const { isNarrow } = useResponsive();
   const navigation = useNavigation<NativeStackNavigationProp<CommunityStackParamList>>();
 
   const [activeTab, setActiveTab] = useState<Tab>('feed');
@@ -1098,7 +1097,7 @@ export default function CommunityScreen() {
             }}
           >
             <Icon name="people-outline" size={14} color={isQuestParticipant ? '#fff' : '#9AA0A6'} />
-            {!isSmallScreen && (
+            {!isNarrow && (
               <Text
                 style={[
                   styles.createGroupBtnText,

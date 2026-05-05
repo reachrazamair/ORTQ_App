@@ -18,6 +18,7 @@ import ConfettiCannon from 'react-native-confetti-cannon';
 import Geolocation from '@react-native-community/geolocation';
 import { Colors } from '../theme/colors';
 import { Fonts } from '../theme/fonts';
+import { useResponsive } from '../hooks/useResponsive';
 import { supabase } from '../lib/supabase';
 import {
   getCachedTrails,
@@ -201,6 +202,7 @@ function CompletionModal({
 import AuthNavigator from './AuthNavigator';
 
 export default function AppNavigator({ session }: { session: Session | null }) {
+  const { isCompact } = useResponsive();
   const [completedInfo, setCompletedInfo] = useState<CompletedInfo | null>(null);
   const [paymentResult, setPaymentResult] = useState<'success' | 'cancel' | null>(null);
 
@@ -459,6 +461,7 @@ export default function AppNavigator({ session }: { session: Session | null }) {
           headerShown: false,
           tabBarActiveTintColor: Colors.orange,
           tabBarInactiveTintColor: '#9AA0A6',
+          tabBarShowLabel: !isCompact,
           tabBarLabelStyle: { fontFamily: Fonts.firaSansRegular, fontSize: 12 },
           tabBarStyle: { borderTopColor: '#F0F0F0' },
         }}
