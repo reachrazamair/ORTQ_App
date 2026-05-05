@@ -1501,10 +1501,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   composeActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
+    flexDirection: 'column',
+    gap: 10,
   },
   addPhotoBtn: {
     flexDirection: 'row',
@@ -1518,7 +1516,7 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
   },
   addPhotoText: { fontFamily: Fonts.firaSansRegular, fontSize: 13, color: Colors.blueGrey },
-  composeBtns: { flexDirection: 'row', gap: 10 },
+  composeBtns: { flexDirection: 'row', gap: 10, justifyContent: 'flex-end' },
   composeCancelBtn: {
     paddingVertical: 12,
     paddingHorizontal: 20,
