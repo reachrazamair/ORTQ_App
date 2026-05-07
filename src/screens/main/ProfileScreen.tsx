@@ -405,48 +405,68 @@ export default function ProfileScreen({ navigation }: Props) {
   const [buyKeysVisible, setBuyKeysVisible] = useState(false);
 
   const load = useCallback(async () => {
-    const { data: authData } = await supabase.auth.getUser();
-    const user = authData.user;
-    if (!user) { setLoading(false); return; }
-
-    setEmail(user.email ?? '');
-    setUserId(user.id);
-
     try {
-      const profile = await getProfile(user.id);
-      if (profile) {
-        setDisplayName(profile.alias ?? profile.full_name ?? '');
-        const rawAvatar = profile.profile_image_url ?? null;
-        setAvatarUrl(rawAvatar
-          ? rawAvatar.startsWith('http') ? rawAvatar : getStorageUrl('user_avatars', rawAvatar)
-          : null);
-        setKeys(profile.keys ?? 0);
-        setRegion((profile.state as any)?.region?.name ?? null);
-        setMemberSince(profile.created_at ?? null);
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError || !user) {
+        setLoading(false);
+        return;
       }
+
+      setEmail(user.email ?? '');
+      setUserId(user.id);
+
+      await Promise.all([
+        (async () => {
+          try {
+            const profile = await getProfile(user.id);
+            if (profile) {
+              setDisplayName(profile.alias ?? profile.full_name ?? '');
+              const rawAvatar = profile.profile_image_url ?? null;
+              setAvatarUrl(
+                rawAvatar
+                  ? rawAvatar.startsWith('http')
+                    ? rawAvatar
+                    : getStorageUrl('user_avatars', rawAvatar)
+                  : null,
+              );
+              setKeys(profile.keys ?? 0);
+              setRegion((profile.state as any)?.region?.name ?? null);
+              setMemberSince(profile.created_at ?? null);
+            }
+          } catch (err) {
+            console.error('[ProfileScreen] getProfile failed:', err);
+          }
+        })(),
+        (async () => {
+          try {
+            const { data: questRows } = await supabase
+              .from('user_quests')
+              .select('points_earned, trails_completed_count')
+              .eq('user_id', user.id);
+
+            if (questRows) {
+              setTotalPoints(
+                questRows.reduce((s, q) => s + (q.points_earned || 0), 0),
+              );
+              setTotalTrails(
+                questRows.reduce((s, q) => s + (q.trails_completed_count || 0), 0),
+              );
+              setTotalQuests(questRows.length);
+            }
+          } catch (err) {
+            console.error('[ProfileScreen] user_quests fetch failed:', err);
+          }
+        })(),
+      ]);
     } catch (err) {
-      console.error('[ProfileScreen] getProfile failed:', err);
-      const meta = user.user_metadata;
-      setDisplayName(meta?.full_name ?? meta?.name ?? '');
-      setAvatarUrl(meta?.avatar_url ?? null);
+      console.error('[ProfileScreen] load failed:', err);
+    } finally {
+      setLoading(false);
     }
-
-    try {
-      const { data: questRows } = await supabase
-        .from('user_quests')
-        .select('points_earned, trails_completed_count')
-        .eq('user_id', user.id);
-
-      if (questRows) {
-        setTotalPoints(questRows.reduce((s, q) => s + (q.points_earned || 0), 0));
-        setTotalTrails(questRows.reduce((s, q) => s + (q.trails_completed_count || 0), 0));
-        setTotalQuests(questRows.length);
-      }
-    } catch (err) {
-      console.error('[ProfileScreen] user_quests fetch failed:', err);
-    }
-
-    setLoading(false);
   }, []);
 
   useFocusEffect(

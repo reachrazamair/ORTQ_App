@@ -99,7 +99,11 @@ export default function LoginScreen({ navigation }: Props) {
       !profile.address;
 
     if (isProfileIncomplete && navigationRef.isReady()) {
-      navigationRef.navigate('Profile');
+      setTimeout(() => {
+        if (navigationRef.isReady()) {
+          navigationRef.navigate('Profile');
+        }
+      }, 100);
     }
   };
 
