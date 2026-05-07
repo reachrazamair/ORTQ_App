@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -468,6 +468,13 @@ export default function ProfileScreen({ navigation }: Props) {
       setLoading(false);
     }
   }, []);
+
+  // Fallback: useFocusEffect won't fire if the tab was already focused when this
+  // screen mounted (e.g. user logs in while on the Profile tab). useEffect covers
+  // that case; useFocusEffect handles subsequent re-focuses.
+  useEffect(() => {
+    load();
+  }, [load]);
 
   useFocusEffect(
     useCallback(() => {
