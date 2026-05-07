@@ -101,7 +101,7 @@ export default function LoginScreen({ navigation }: Props) {
     if (isProfileIncomplete && navigationRef.isReady()) {
       setTimeout(() => {
         if (navigationRef.isReady()) {
-          navigationRef.navigate('Profile');
+          navigationRef.navigate('Explorer');
         }
       }, 100);
     }
