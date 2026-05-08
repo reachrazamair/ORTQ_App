@@ -1,406 +1,37 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
-  Image,
-  Modal,
-  Pressable,
   RefreshControl,
   ScrollView,
   StatusBar,
-  StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import Config from 'react-native-config';
+
 import { Colors } from '../../theme/colors';
-import { Fonts } from '../../theme/fonts';
-import { supabase } from '../../lib/supabase';
+import { styles } from '../../styles/leaderboardStyles';
+import { useLeaderboard } from '../../hooks/useLeaderboard';
 
-const getAvatarUrl = (raw: string | null): string | null => {
-  if (!raw) return null;
-  if (raw.startsWith('http')) return raw;
-  return `${Config.SUPABASE_URL}/storage/v1/object/public/user_avatars/${raw}`;
-};
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-type LeaderboardUser = {
-  user_id: string;
-  full_name: string;
-  alias: string | null;
-  leaderboard_rank: number;
-  points_earned: number;
-  trails_completed_count: number;
-  city: string;
-  state_abbreviation: string;
-  profile_image_url: string | null;
-  vehicle_type?: string | null;
-  make?: string | null;
-  model?: string | null;
-  year?: string | null;
-  rig_description?: string | null;
-  about_me?: string | null;
-};
-
-type RankedUser = LeaderboardUser & { position: number };
-
-type Region = { id: string; name: string };
-
-// ---------------------------------------------------------------------------
-// Medal colors
-// ---------------------------------------------------------------------------
-
-const MEDAL_COLORS: Record<number, string> = {
-  1: '#F59E0B', // gold
-  2: '#9CA3AF', // silver
-  3: '#B45309', // bronze
-};
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function getUserName(user: LeaderboardUser) {
-  return user.alias ?? user.full_name ?? 'Quest Participant';
-}
-
-function getInitials(name: string) {
-  return name
-    .split(' ')
-    .map(n => n.charAt(0).toUpperCase())
-    .join('');
-}
-
-function getCompletedTrailsText(count: number) {
-  return count === 1 ? '1 Completed Trail' : `${count} Completed Trails`;
-}
-
-// ---------------------------------------------------------------------------
-// Position badge
-// ---------------------------------------------------------------------------
-
-function PositionBadge({ position }: { position: number }) {
-  const medalColor = MEDAL_COLORS[position];
-  return (
-    <View
-      style={[
-        styles.positionBadge,
-        medalColor
-          ? { backgroundColor: medalColor }
-          : styles.positionBadgeDefault,
-      ]}
-    >
-      <Text
-        style={[
-          styles.positionBadgeText,
-          !medalColor && styles.positionBadgeTextDefault,
-        ]}
-      >
-        {position}
-      </Text>
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// UserProfileModal
-// ---------------------------------------------------------------------------
-
-function UserProfileModal({
-  user,
-  isOpen,
-  onClose,
-}: {
-  user: RankedUser | null;
-  isOpen: boolean;
-  onClose: () => void;
-}) {
-  if (!user) return null;
-
-  const name = getUserName(user);
-  const initials = getInitials(name);
-  const hasVehicle =
-    user.vehicle_type ||
-    user.make ||
-    user.model ||
-    user.year ||
-    user.rig_description;
-
-  return (
-    <Modal
-      visible={isOpen}
-      animationType="slide"
-      transparent
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalOverlay}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View style={styles.modalSheet}>
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.modalScroll}
-          >
-            {/* Avatar */}
-            <View style={styles.modalAvatarWrap}>
-              <View style={styles.modalAvatarRing}>
-                {user.profile_image_url ? (
-                  <Image
-                    source={{ uri: getAvatarUrl(user.profile_image_url)! }}
-                    style={styles.modalAvatarImg}
-                  />
-                ) : (
-                  <View style={styles.modalAvatarPlaceholder}>
-                    <Text style={styles.modalAvatarInitials}>{initials}</Text>
-                  </View>
-                )}
-              </View>
-            </View>
-
-            {/* Name + location */}
-            <Text style={styles.modalName}>{name}</Text>
-            <Text style={styles.modalLocation}>
-              {user.city || 'N/A'}, {user.state_abbreviation || 'N/A'}
-            </Text>
-
-            {/* Stats row */}
-            <View style={styles.modalStatsRow}>
-              <View style={styles.modalStat}>
-                <Text style={styles.modalStatValue}>
-                  {user.points_earned.toLocaleString()}
-                </Text>
-                <Text style={styles.modalStatLabel}>Points</Text>
-              </View>
-              <View style={styles.modalStatDivider} />
-              <View style={styles.modalStat}>
-                <Text style={styles.modalStatValue}>
-                  {user.trails_completed_count}
-                </Text>
-                <Text style={styles.modalStatLabel}>Completed Trails</Text>
-              </View>
-            </View>
-
-            {/* Vehicle section */}
-            {hasVehicle && (
-              <View style={styles.modalSection}>
-                <Text style={styles.modalSectionTitle}>Vehicle</Text>
-                <View style={styles.modalGrid}>
-                  <Text style={styles.modalGridLabel}>Type</Text>
-                  <Text style={styles.modalGridValue}>
-                    {user.vehicle_type || 'N/A'}
-                  </Text>
-
-                  <Text style={styles.modalGridLabel}>Make</Text>
-                  <Text style={styles.modalGridValue}>
-                    {user.make || 'N/A'}
-                  </Text>
-
-                  <Text style={styles.modalGridLabel}>Model</Text>
-                  <Text style={styles.modalGridValue}>
-                    {user.model || 'N/A'}
-                  </Text>
-
-                  <Text style={styles.modalGridLabel}>Year</Text>
-                  <Text style={styles.modalGridValue}>
-                    {user.year || 'N/A'}
-                  </Text>
-                </View>
-                {user.rig_description && (
-                  <View style={styles.modalRigWrap}>
-                    <Text style={styles.modalRigLabel}>Rig Description</Text>
-                    <Text style={styles.modalRigText}>
-                      {user.rig_description}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            )}
-
-            {/* About Me section */}
-            {user.about_me && (
-              <View style={styles.modalSection}>
-                <Text style={styles.modalSectionTitle}>About Me</Text>
-                <Text style={styles.modalAboutText}>{user.about_me}</Text>
-              </View>
-            )}
-          </ScrollView>
-
-          <TouchableOpacity style={styles.modalCloseBtn} onPress={onClose}>
-            <Text style={styles.modalCloseBtnText}>Close</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// UserRow
-// ---------------------------------------------------------------------------
-
-function UserRow({
-  rankedUser,
-  isCurrentUser,
-  isLast,
-  onPress,
-}: {
-  rankedUser: RankedUser;
-  isCurrentUser: boolean;
-  isLast: boolean;
-  onPress: () => void;
-}) {
-  const medalColor = MEDAL_COLORS[rankedUser.position];
-  const name = getUserName(rankedUser);
-  const initials = getInitials(name);
-
-  return (
-    <>
-      <TouchableOpacity
-        onPress={onPress}
-        activeOpacity={0.7}
-        style={[
-          styles.row,
-          isCurrentUser && styles.rowCurrentUser,
-          medalColor
-            ? { borderLeftWidth: 4, borderLeftColor: medalColor }
-            : undefined,
-        ]}
-      >
-        {/* Position badge */}
-        <PositionBadge position={rankedUser.position} />
-
-        {/* Avatar */}
-        <View style={styles.avatarWrap}>
-          {rankedUser.profile_image_url ? (
-            <Image
-              source={{ uri: getAvatarUrl(rankedUser.profile_image_url)! }}
-              style={styles.avatarImg}
-            />
-          ) : (
-            <View
-              style={[
-                styles.avatarPlaceholder,
-                medalColor && { borderWidth: 2, borderColor: medalColor },
-              ]}
-            >
-              <Text style={styles.avatarInitials}>{initials}</Text>
-            </View>
-          )}
-        </View>
-
-        {/* Info */}
-        <View style={styles.info}>
-          <Text style={styles.name} numberOfLines={1}>
-            {name}
-            {isCurrentUser && <Text style={styles.youBadge}> (You)</Text>}
-          </Text>
-          <Text style={styles.location}>
-            {rankedUser.city || 'N/A'}, {rankedUser.state_abbreviation || 'N/A'}
-          </Text>
-          <Text style={styles.trailsText}>
-            {getCompletedTrailsText(rankedUser.trails_completed_count)}
-          </Text>
-        </View>
-
-        {/* Points */}
-        <View style={styles.pointsWrap}>
-          <Text style={styles.points}>
-            {rankedUser.points_earned.toLocaleString()} pts
-          </Text>
-        </View>
-      </TouchableOpacity>
-      {!isLast && <View style={styles.divider} />}
-    </>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Main screen
-// ---------------------------------------------------------------------------
+// Extracted Components
+import { UserRow } from '../../components/leaderboard/LeaderboardItem';
+import UserProfileModal from '../../components/leaderboard/UserProfileModal';
 
 export default function LeaderboardScreen() {
-  const [selectedRegion, setSelectedRegion] = useState('all');
-  const [selectedUser, setSelectedUser] = useState<RankedUser | null>(null);
-  const [users, setUsers] = useState<LeaderboardUser[]>([]);
-  const [regions, setRegions] = useState<Region[]>([]);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [initialized, setInitialized] = useState(false);
-
-  // Fetch regions + current user once on mount, default to user's own region
-  useEffect(() => {
-    const init = async () => {
-      const [{ data: authData }, { data: regionRows }] = await Promise.all([
-        supabase.auth.getUser(),
-        supabase.from('regions').select('id, name').order('name'),
-      ]);
-
-      const userId = authData.user?.id ?? null;
-      setCurrentUserId(userId);
-      setRegions(regionRows ?? []);
-
-      if (userId) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('state:states(region:regions(id))')
-          .eq('id', userId)
-          .single();
-
-        const regionId = (profile?.state as any)?.region?.id;
-        if (regionId) setSelectedRegion(regionId);
-      }
-
-      // Mark init done — leaderboard fetch will now run with the correct region
-      setInitialized(true);
-    };
-    init();
-  }, []);
-
-  // Fetch leaderboard whenever region changes
-  const loadLeaderboard = useCallback(async () => {
-    setIsLoading(true);
-    const regionId = selectedRegion === 'all' ? null : selectedRegion;
-    const { data, error } = await supabase.rpc('get_top_quests_by_region', {
-      input_region_id: regionId,
-    });
-    if (!error) setUsers(data ?? []);
-    setIsLoading(false);
-  }, [selectedRegion]);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!initialized) return;
-      loadLeaderboard();
-    }, [loadLeaderboard, initialized]),
-  );
-
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await loadLeaderboard();
-    setRefreshing(false);
-  }, [loadLeaderboard]);
-
-  // Tie-aware position calculation (mirrors web logic)
-  const usersWithPosition = useMemo<RankedUser[]>(() => {
-    let position = 1;
-    return users.map((user, index) => {
-      if (index > 0) {
-        const prevRank = users[index - 1].leaderboard_rank;
-        const prevPosition = position;
-        if (user.leaderboard_rank === prevRank) {
-          position = prevPosition;
-        } else {
-          position = prevPosition + 1;
-        }
-      }
-      return { ...user, position };
-    });
-  }, [users]);
+  const {
+    selectedRegion,
+    setSelectedRegion,
+    selectedUser,
+    setSelectedUser,
+    users,
+    regions,
+    currentUserId,
+    isLoading,
+    refreshing,
+    initialized,
+    handleRefresh,
+  } = useLeaderboard();
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -424,31 +55,32 @@ export default function LeaderboardScreen() {
           <Text style={styles.headerSub}>Top Questers</Text>
         </View>
 
-        {/* Region filter chips — hidden until init so no flicker on active chip */}
+        {/* Region filter chips */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterRow}
         >
-          {initialized && [{ id: 'all', name: 'All Regions' }, ...regions].map(region => (
-            <TouchableOpacity
-              key={region.id}
-              style={[
-                styles.chip,
-                selectedRegion === region.id && styles.chipActive,
-              ]}
-              onPress={() => setSelectedRegion(region.id)}
-            >
-              <Text
+          {initialized &&
+            [{ id: 'all', name: 'All Regions' }, ...regions].map(region => (
+              <TouchableOpacity
+                key={region.id}
                 style={[
-                  styles.chipText,
-                  selectedRegion === region.id && styles.chipTextActive,
+                  styles.chip,
+                  selectedRegion === region.id && styles.chipActive,
                 ]}
+                onPress={() => setSelectedRegion(region.id)}
               >
-                {region.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
+                <Text
+                  style={[
+                    styles.chipText,
+                    selectedRegion === region.id && styles.chipTextActive,
+                  ]}
+                >
+                  {region.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
         </ScrollView>
 
         {/* Card title */}
@@ -471,7 +103,7 @@ export default function LeaderboardScreen() {
             )}
 
             {/* Empty state */}
-            {!isLoading && usersWithPosition.length === 0 && (
+            {!isLoading && users.length === 0 && (
               <View style={styles.centeredState}>
                 <Text style={styles.centeredStateText}>
                   No users found for this region or selection.
@@ -481,12 +113,12 @@ export default function LeaderboardScreen() {
 
             {/* List */}
             {!isLoading &&
-              usersWithPosition.map((rankedUser, index) => (
+              users.map((rankedUser, index) => (
                 <UserRow
                   key={rankedUser.user_id}
                   rankedUser={rankedUser}
                   isCurrentUser={rankedUser.user_id === currentUserId}
-                  isLast={index === usersWithPosition.length - 1}
+                  isLast={index === users.length - 1}
                   onPress={() => setSelectedUser(rankedUser)}
                 />
               ))}
@@ -502,368 +134,3 @@ export default function LeaderboardScreen() {
     </SafeAreaView>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-  },
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-  },
-  scrollContent: {
-    paddingBottom: 40,
-  },
-
-  // Header
-  header: {
-    paddingHorizontal: 24,
-    paddingBottom: 4,
-  },
-  headerTitle: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 28,
-    color: Colors.blueGrey,
-    marginBottom: 4,
-  },
-  headerSub: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 15,
-    color: '#687076',
-  },
-
-  // Region chips
-  filterRow: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    gap: 8,
-  },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E9ECEF',
-  },
-  chipActive: {
-    backgroundColor: Colors.orange,
-    borderColor: Colors.orange,
-  },
-  chipText: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 13,
-    color: Colors.blueGrey,
-  },
-  chipTextActive: {
-    color: '#fff',
-    fontFamily: Fonts.firaSansBold,
-  },
-
-  // Section
-  section: {
-    marginHorizontal: 20,
-  },
-  sectionTitle: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 13,
-    color: '#687076',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 8,
-    marginLeft: 4,
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-
-  // States
-  centeredState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40,
-    gap: 10,
-  },
-  centeredStateText: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 14,
-    color: '#9AA0A6',
-  },
-
-  // Row
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 12,
-  },
-  rowCurrentUser: {
-    backgroundColor: 'rgba(242, 118, 32, 0.08)',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#F0F0F0',
-    marginLeft: 16,
-  },
-
-  // Position badge
-  positionBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  positionBadgeDefault: {
-    backgroundColor: '#EEF0F2',
-  },
-  positionBadgeText: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 13,
-    color: '#fff',
-  },
-  positionBadgeTextDefault: {
-    color: '#687076',
-  },
-
-  // Avatar
-  avatarWrap: {
-    width: 44,
-    height: 44,
-  },
-  avatarImg: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-  },
-  avatarPlaceholder: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#EEF0F2',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarInitials: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 15,
-    color: Colors.blueGrey,
-  },
-
-  // Info
-  info: {
-    flex: 1,
-  },
-  name: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 14,
-    color: Colors.blueGrey,
-    marginBottom: 2,
-  },
-  youBadge: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 12,
-    color: Colors.orange,
-  },
-  location: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 12,
-    color: '#9AA0A6',
-  },
-  trailsText: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 11,
-    color: '#9AA0A6',
-    marginTop: 1,
-  },
-
-  // Points
-  pointsWrap: {
-    alignItems: 'flex-end',
-  },
-  points: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 13,
-    color: Colors.orange,
-  },
-
-  // ---------------------------------------------------------------------------
-  // Profile modal
-  // ---------------------------------------------------------------------------
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  modalSheet: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '85%',
-    paddingBottom: 32,
-  },
-  modalScroll: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 8,
-  },
-
-  // Avatar
-  modalAvatarWrap: {
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  modalAvatarRing: {
-    width: 92,
-    height: 92,
-    borderRadius: 46,
-    borderWidth: 2,
-    borderColor: Colors.orange,
-    padding: 2,
-  },
-  modalAvatarImg: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 44,
-  },
-  modalAvatarPlaceholder: {
-    flex: 1,
-    borderRadius: 44,
-    backgroundColor: '#EEF0F2',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalAvatarInitials: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 28,
-    color: Colors.blueGrey,
-  },
-
-  // Name / location
-  modalName: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 20,
-    color: Colors.blueGrey,
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  modalLocation: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 14,
-    color: '#9AA0A6',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-
-  // Stats row
-  modalStatsRow: {
-    flexDirection: 'row',
-    backgroundColor: '#F8F8F8',
-    borderRadius: 12,
-    paddingVertical: 16,
-    marginBottom: 24,
-  },
-  modalStat: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  modalStatDivider: {
-    width: 1,
-    backgroundColor: '#E9ECEF',
-  },
-  modalStatValue: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 18,
-    color: Colors.orange,
-    marginBottom: 2,
-  },
-  modalStatLabel: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 12,
-    color: '#9AA0A6',
-  },
-
-  // Section
-  modalSection: {
-    marginBottom: 20,
-  },
-  modalSectionTitle: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 12,
-    color: '#687076',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginBottom: 10,
-  },
-
-  // Vehicle grid
-  modalGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    rowGap: 8,
-  },
-  modalGridLabel: {
-    width: '35%',
-    fontFamily: Fonts.firaSansBold,
-    fontSize: 13,
-    color: '#9AA0A6',
-  },
-  modalGridValue: {
-    width: '65%',
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 13,
-    color: Colors.blueGrey,
-  },
-  modalRigWrap: {
-    marginTop: 12,
-  },
-  modalRigLabel: {
-    fontFamily: Fonts.firaSansBold,
-    fontSize: 12,
-    color: '#9AA0A6',
-    marginBottom: 4,
-  },
-  modalRigText: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 13,
-    color: Colors.blueGrey,
-    lineHeight: 20,
-  },
-
-  // About
-  modalAboutText: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 13,
-    color: Colors.blueGrey,
-    lineHeight: 20,
-  },
-
-  // Close button
-  modalCloseBtn: {
-    marginHorizontal: 24,
-    marginTop: 8,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E9ECEF',
-    alignItems: 'center',
-  },
-  modalCloseBtnText: {
-    fontFamily: Fonts.firaSansBold,
-    fontSize: 14,
-    color: Colors.blueGrey,
-  },
-});
