@@ -241,80 +241,66 @@ export default function MapScreen() {
     return () => sub.remove();
   }, []);
 
-  // --- Load user + trail markers ---
+  // --- Init: static stuff ---
   useEffect(() => {
     const init = async () => {
-      // getSession reads from local storage — works offline unlike getUser()
-      const { data: sessionData } = await supabase.auth.getSession();
-      const uid = sessionData.session?.user?.id ?? null;
-      setUserId(uid);
-
       // Pre-populate completedIds from the queue so GPS never re-triggers
       // a trail the user already completed offline (even before Supabase syncs)
       const queue = await getCompletionQueue();
       queue.forEach(q => completedIds.current.add(q.trailId));
 
-      const { data, error } = await supabase.rpc('get_user_trails_markers', {
-        p_user_id: uid,
-      });
-
-      if (!error && data) {
-        const markers = (data as TrailMarker[]).map(t => ({
-          ...t,
-          // If trail is still in queue (flush failed), keep it as completed
-          user_trail_status: completedIds.current.has(t.id)
-            ? ('completed' as TrailStatus)
-            : t.user_trail_status,
-        }));
-        // Populate completedIds from all completed trails so GPS never re-triggers them
-        markers.forEach(t => {
-          if (t.user_trail_status === 'completed') completedIds.current.add(t.id);
-        });
-        setTrails(markers);
-        const cacheable = markers.filter(m => m.user_trail_status !== 'locked');
-        saveAllTrailsToCache(cacheable as any).catch(() => {});
-        markers.forEach(t => {
-          if (t.user_trail_status === 'unlocked' && t.hidden_point) {
-            downloadOfflinePack(t.id, t.hidden_point).catch(() => {});
-          }
-        });
-      } else {
-        // Offline — load from cache
-        const cached = await getCachedTrails();
-        if (cached.length > 0) {
-          // Populate completedIds from cached completed trails
-          cached.forEach(t => {
-            if (t.user_trail_status === 'completed') completedIds.current.add(t.id);
-          });
-          setTrails(cached as TrailMarker[]);
-        }
-      }
-
       setLoading(false);
-
       // Flush queue in background — does not block map loading
       flushCompletionQueue().catch(() => {});
     };
     init();
   }, []);
 
-  // --- Flush queue + sync completed statuses from cache on focus ---
+  // --- Flush queue + sync markers on focus ---
   useFocusEffect(
     useCallback(() => {
-      flushCompletionQueue().catch(() => {});
-      // Reflect any completions that happened via background sync
-      getCachedTrails().then(cached => {
-        if (cached.length === 0) return;
-        setTrails(prev =>
-          prev.map(t => {
-            const c = cached.find(ct => ct.id === t.id);
-            if (c?.user_trail_status === 'completed' && t.user_trail_status !== 'completed') {
-              return { ...t, user_trail_status: 'completed' };
+      const refresh = async () => {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          const uid = user?.id ?? null;
+          setUserId(uid);
+
+          const { data, error } = await supabase.rpc('get_user_trails_markers', {
+            p_user_id: uid,
+          });
+
+          if (!error && data) {
+            const markers = (data as TrailMarker[]).map(t => ({
+              ...t,
+              user_trail_status: completedIds.current.has(t.id)
+                ? ('completed' as TrailStatus)
+                : t.user_trail_status,
+            }));
+            markers.forEach(t => {
+              if (t.user_trail_status === 'completed') completedIds.current.add(t.id);
+            });
+            setTrails(markers);
+            
+            // Sync cache
+            const cacheable = markers.filter(m => m.user_trail_status !== 'locked');
+            saveAllTrailsToCache(cacheable as any).catch(() => {});
+          } else {
+            // Offline/error - load from cache
+            const cached = await getCachedTrails();
+            if (cached.length > 0) {
+              cached.forEach(t => {
+                if (t.user_trail_status === 'completed') completedIds.current.add(t.id);
+              });
+              setTrails(cached as TrailMarker[]);
             }
-            return t;
-          }),
-        );
-      }).catch(() => {});
+          }
+        } catch (err) {
+          console.error('[MapScreen] Refresh failed:', err);
+        }
+        flushCompletionQueue().catch(() => {});
+      };
+
+      refresh();
     }, []),
   );
 
