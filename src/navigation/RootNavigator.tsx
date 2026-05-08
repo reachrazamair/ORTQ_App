@@ -170,7 +170,7 @@ export default function RootNavigator() {
         onSuccess={() => {
           setIsPasswordRecovery(false);
           if (navigationRef.isReady()) {
-            navigationRef.navigate('Profile');
+            navigationRef.navigate('Explorer');
           }
         }}
       />

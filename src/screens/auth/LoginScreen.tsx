@@ -91,16 +91,10 @@ export default function LoginScreen({ navigation }: Props) {
 
     setLoading(false);
 
-    const isProfileIncomplete =
-      !profile.full_name ||
-      !profile.alias ||
-      !profile.city?.id ||
-      !profile.state?.id ||
-      !profile.address;
-
-    if (isProfileIncomplete && navigationRef.isReady()) {
+    if (navigationRef.isReady()) {
       setTimeout(() => {
         if (navigationRef.isReady()) {
+          // Switch to Explorer tab after successful login
           navigationRef.navigate('Explorer');
         }
       }, 100);
