@@ -446,6 +446,21 @@ export function useExplorer() {
           const currentUserId = user?.id ?? null;
           setUserId(currentUserId);
 
+          // Fetch variants if they are empty (e.g., initial load failed or was skipped)
+          if (variants.trail_types.length === 0) {
+            const { data: vData } = await supabase.rpc(
+              'get_all_variants_about_trails',
+            );
+            if (vData) {
+              const v = vData as any;
+              setVariants({
+                trail_types: v.trail_types ?? [],
+                difficulty_levels: v.difficulty_levels ?? [],
+                states: v.states ?? [],
+              });
+            }
+          }
+
           if (user) {
             getProfile(user.id)
               .then(p => {

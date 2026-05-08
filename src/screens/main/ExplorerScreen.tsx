@@ -58,6 +58,14 @@ export default function ExplorerScreen() {
     getLocation,
   } = useExplorer();
 
+  const handleJoinQuest = useCallback(() => {
+    if (!userId) {
+      navigation.navigate('Profile');
+      return;
+    }
+    setShowJoinQuest(true);
+  }, [userId, navigation, setShowJoinQuest]);
+
   const renderTrail = useCallback(
     ({ item }: { item: Trail }) => (
       <TrailCard
@@ -68,7 +76,7 @@ export default function ExplorerScreen() {
         activeQuests={activeQuests}
         onShowMore={t => setSelectedTrail(t)}
         onUnlock={handleUnlock}
-        onJoinQuest={() => setShowJoinQuest(true)}
+        onJoinQuest={handleJoinQuest}
         onViewOnMap={trailId => navigation.navigate('Map', { trailId })}
       />
     ),
@@ -78,8 +86,8 @@ export default function ExplorerScreen() {
       isUserParticipant,
       activeQuests,
       handleUnlock,
+      handleJoinQuest,
       setSelectedTrail,
-      setShowJoinQuest,
       navigation,
     ],
   );
