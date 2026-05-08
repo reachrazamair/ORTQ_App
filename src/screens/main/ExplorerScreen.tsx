@@ -1455,13 +1455,40 @@ export default function ExplorerScreen() {
   // (general freshness — covers background syncs and other server-side changes)
   useFocusEffect(
     useCallback(() => {
-      if (userLat === null || userLon === null) return;
-      loadPage(0, filtersRef.current, userLat, userLon, userId);
-      if (userId) {
-        getProfile(userId).then(p => {
-          if (p) setUserKeys(p.keys ?? 0);
-        }).catch(() => {});
-      }
+      const refresh = async () => {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          const currentUserId = user?.id ?? null;
+          setUserId(currentUserId);
+
+          if (user) {
+            // Refresh keys (non-blocking)
+            getProfile(user.id).then(p => {
+              if (p) setUserKeys(p.keys ?? 0);
+            }).catch(() => {});
+
+            // Refresh quest status
+            const { data: questData } = await supabase.rpc('get_active_quests_and_check_user', {
+              input_user_id: user.id,
+            });
+            if (questData) {
+              setIsUserParticipant(questData.isUserParticipant ?? false);
+              setActiveQuests(questData.quests ?? []);
+            }
+          } else {
+            setUserKeys(0);
+            setIsUserParticipant(false);
+          }
+
+          if (userLat !== null && userLon !== null) {
+            loadPage(0, filtersRef.current, userLat, userLon, currentUserId);
+          }
+        } catch (err) {
+          console.warn('[ExplorerScreen] Refresh user failed:', err);
+        }
+      };
+
+      refresh();
     }, [userId, userLat, userLon, loadPage]),
   );
 
