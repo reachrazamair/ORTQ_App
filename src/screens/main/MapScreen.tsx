@@ -1,379 +1,29 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Clipboard,
-  Image,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Image, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Mapbox from '@rnmapbox/maps';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Config from 'react-native-config';
-import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Colors } from '../../theme/colors';
-import { Fonts } from '../../theme/fonts';
-import { supabase } from '../../lib/supabase';
-import { downloadOfflinePack } from '../../lib/offlineMap';
-import {
-  getCachedTrails,
-  saveAllTrailsToCache,
-  getCompletionQueue,
-} from '../../lib/trailCache';
-import { flushCompletionQueue } from '../../lib/syncService';
-import { onTrailCompleted, onTrailUnlocked, onGpsUpdate, getLastGpsPosition } from '../../lib/trailEvents';
+import { styles } from '../../styles/mapStyles';
+import { getMarkerColor } from '../../utils/mapHelpers';
+import { useMap } from '../../hooks/useMap';
+import InfoSheet from '../../components/map/InfoSheet';
 
 Mapbox.setAccessToken(Config.MAPBOX_TOKEN ?? '');
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-type TrailStatus = 'locked' | 'unlocked' | 'completed';
-
-type HiddenPoint = {
-  id: string;
-  latitude: number;
-  longitude: number;
-  keys_awarded: number;
-  points_awarded: number;
-};
-
-type TrailMarker = {
-  id: string;
-  name: string;
-  city: string;
-  state: string;
-  difficulty: string;
-  distance_tolerance: number;
-  user_trail_status: TrailStatus;
-  hidden_point: HiddenPoint | null;
-};
-
-type Coords = { latitude: number; longitude: number };
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function metersToMiles(m: number) {
-  return m / 1609.344;
-}
-
-function haversineDistance(a: Coords, b: Coords): number {
-  const R = 6371000;
-  const dLat = ((b.latitude - a.latitude) * Math.PI) / 180;
-  const dLon = ((b.longitude - a.longitude) * Math.PI) / 180;
-  const sinDLat = Math.sin(dLat / 2);
-  const sinDLon = Math.sin(dLon / 2);
-  const x =
-    sinDLat * sinDLat +
-    Math.cos((a.latitude * Math.PI) / 180) *
-      Math.cos((b.latitude * Math.PI) / 180) *
-      sinDLon *
-      sinDLon;
-  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
-}
-
-function getMarkerColor(status: TrailStatus): string {
-  if (status === 'completed') return '#22C55E';
-  if (status === 'unlocked') return '#3B82F6';
-  return '#9AA0A6';
-}
-
-// ---------------------------------------------------------------------------
-// Info Bottom Sheet
-// ---------------------------------------------------------------------------
-
-function InfoSheet({
-  trail,
-  userCoords,
-  onClose,
-}: {
-  trail: TrailMarker | null;
-  userCoords: Coords | null;
-  onClose: () => void;
-}) {
-  const [coordsCopied, setCoordsCopied] = useState(false);
-
-  if (!trail) return null;
-  const hp = trail.hidden_point;
-
-  const distance =
-    userCoords && hp
-      ? haversineDistance(userCoords, { latitude: hp.latitude, longitude: hp.longitude })
-      : null;
-
-  const formatDistance = (m: number) => {
-    const miles = metersToMiles(m);
-    return miles >= 1 ? `${miles.toFixed(1)} mi` : `${m.toFixed(0)} m`;
-  };
-
-  const handleCopyCoords = () => {
-    if (!hp) return;
-    Clipboard.setString(`${hp.latitude.toFixed(6)}, ${hp.longitude.toFixed(6)}`);
-    setCoordsCopied(true);
-    setTimeout(() => setCoordsCopied(false), 2000);
-  };
-
-  return (
-    <View style={styles.infoSheet}>
-      <View style={styles.infoHandle} />
-
-      <View style={styles.infoHeader}>
-        <Text style={styles.infoName} numberOfLines={1}>{trail.name}</Text>
-        <TouchableOpacity onPress={onClose}>
-          <Icon name="close" size={20} color={Colors.blueGrey} />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.infoRow}>
-        <Icon name="location-outline" size={15} color={Colors.orange} />
-        <Text style={styles.infoText}>{trail.city}, {trail.state}</Text>
-      </View>
-
-      {hp && (
-        <View style={styles.infoRow}>
-          <Icon name="key-outline" size={15} color={Colors.orange} />
-          <Text style={styles.infoText}>{hp.keys_awarded} Keys</Text>
-          <Icon name="trophy-outline" size={15} color="#F59E0B" style={{ marginLeft: 12 }} />
-          <Text style={styles.infoText}>{hp.points_awarded} Points</Text>
-        </View>
-      )}
-
-      {hp && (
-        <View style={[styles.infoRow, { justifyContent: 'space-between' }]}>
-          <View style={styles.infoRow}>
-            <Icon name="globe-outline" size={15} color={Colors.orange} />
-            <Text selectable style={styles.infoText}>
-              {hp.latitude.toFixed(4)}, {hp.longitude.toFixed(4)}
-            </Text>
-          </View>
-          <TouchableOpacity onPress={handleCopyCoords} style={styles.copyBtn}>
-            <Icon
-              name={coordsCopied ? 'checkmark-outline' : 'copy-outline'}
-              size={16}
-              color={coordsCopied ? '#22C55E' : Colors.blueGrey}
-            />
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {distance !== null && (
-        <View style={styles.infoRow}>
-          <Icon name="navigate-outline" size={15} color="#3B82F6" />
-          <Text style={[styles.infoText, { color: '#3B82F6', fontFamily: Fonts.firaSansBold }]}>
-            Distance: {formatDistance(distance)}
-          </Text>
-        </View>
-      )}
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Main Screen
-// ---------------------------------------------------------------------------
-
-type MapRouteParams = { trailId?: string };
-
 export default function MapScreen() {
-  const route = useRoute<RouteProp<{ Map: MapRouteParams }, 'Map'>>();
-  const navigation = useNavigation<any>();
-  const focusedTrailId = route.params?.trailId ?? null;
-
-  const cameraRef = useRef<Mapbox.Camera>(null);
-
-  const [userCoords, setUserCoords] = useState<Coords | null>(null);
-  const [trails, setTrails] = useState<TrailMarker[]>([]);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [selectedTrail, setSelectedTrail] = useState<TrailMarker | null>(null);
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  const completedIds = useRef<Set<string>>(new Set());
-  const isFollowingRef = useRef(true);
-
-  // When Explorer unlocks a trail, add its marker without a full reload
-  useEffect(() => {
-    const sub = onTrailUnlocked(({ trailId, trailName, city, state, difficulty, distanceTolerance, hiddenPoint }) => {
-      setTrails(prev => {
-        const existing = prev.find(t => t.id === trailId);
-        if (!existing) {
-          // Trail was locked and not in map state — add it now
-          return [
-            ...prev,
-            {
-              id: trailId,
-              name: trailName,
-              city,
-              state,
-              difficulty,
-              distance_tolerance: distanceTolerance,
-              user_trail_status: 'unlocked' as TrailStatus,
-              hidden_point: hiddenPoint as any,
-            },
-          ];
-        }
-        return prev.map(t =>
-          t.id === trailId
-            ? { ...t, user_trail_status: 'unlocked', hidden_point: hiddenPoint as any }
-            : t,
-        );
-      });
-    });
-    return () => sub.remove();
-  }, []);
-
-  // When AppNavigator completes a trail, update the marker and close the info sheet
-  useEffect(() => {
-    const sub = onTrailCompleted(({ trailId }) => {
-      setTrails(prev =>
-        prev.map(t =>
-          t.id === trailId ? { ...t, user_trail_status: 'completed' } : t,
-        ),
-      );
-      setSelectedTrail(prev => (prev?.id === trailId ? null : prev));
-    });
-    return () => sub.remove();
-  }, []);
-
-  // --- Init: static stuff ---
-  useEffect(() => {
-    const init = async () => {
-      // Pre-populate completedIds from the queue so GPS never re-triggers
-      // a trail the user already completed offline (even before Supabase syncs)
-      const queue = await getCompletionQueue();
-      queue.forEach(q => completedIds.current.add(q.trailId));
-
-      setLoading(false);
-      // Flush queue in background — does not block map loading
-      flushCompletionQueue().catch(() => {});
-    };
-    init();
-  }, []);
-
-  // --- Flush queue + sync markers on focus ---
-  useFocusEffect(
-    useCallback(() => {
-      const refresh = async () => {
-        try {
-          const { data: { user } } = await supabase.auth.getUser();
-          const uid = user?.id ?? null;
-          setUserId(uid);
-
-          const { data, error } = await supabase.rpc('get_user_trails_markers', {
-            p_user_id: uid,
-          });
-
-          if (!error && data) {
-            const markers = (data as TrailMarker[]).map(t => ({
-              ...t,
-              user_trail_status: completedIds.current.has(t.id)
-                ? ('completed' as TrailStatus)
-                : t.user_trail_status,
-            }));
-            markers.forEach(t => {
-              if (t.user_trail_status === 'completed') completedIds.current.add(t.id);
-            });
-            setTrails(markers);
-            
-            // Sync cache
-            const cacheable = markers.filter(m => m.user_trail_status !== 'locked');
-            saveAllTrailsToCache(cacheable as any).catch(() => {});
-          } else {
-            // Offline/error - load from cache
-            const cached = await getCachedTrails();
-            if (cached.length > 0) {
-              cached.forEach(t => {
-                if (t.user_trail_status === 'completed') completedIds.current.add(t.id);
-              });
-              setTrails(cached as TrailMarker[]);
-            }
-          }
-        } catch (err) {
-          console.error('[MapScreen] Refresh failed:', err);
-        }
-        flushCompletionQueue().catch(() => {});
-      };
-
-      refresh();
-    }, []),
-  );
-
-  // Keep refs in sync so GPS callback always reads latest without restarting the watch
-  useEffect(() => { isFollowingRef.current = isFollowing; }, [isFollowing]);
-
-  // --- Receive GPS from AppNavigator's single global watch ---
-  // AppNavigator owns the one watchPosition; it broadcasts via gps:update event.
-  // On mount, immediately apply any position already received (screen may mount
-  // after AppNavigator's first GPS tick, causing it to miss that event).
-  useEffect(() => {
-    const applyCoords = (coords: { latitude: number; longitude: number }) => {
-      setUserCoords(coords);
-      if (isFollowingRef.current) {
-        cameraRef.current?.setCamera({
-          centerCoordinate: [coords.longitude, coords.latitude],
-          animationDuration: 500,
-        });
-      }
-    };
-
-    const last = getLastGpsPosition();
-    if (last) applyCoords(last);
-
-    const sub = onGpsUpdate(applyCoords);
-    return () => sub.remove();
-  }, []);
-
-  // --- Center on focused trail from Explorer ---
-  // useFocusEffect re-runs every time the screen gains focus, so tapping
-  // "Verify Location" on the same trail a second time still re-centers.
-  useFocusEffect(
-    useCallback(() => {
-      if (!focusedTrailId) return;
-      const trail = trails.find(t => t.id === focusedTrailId);
-      if (!trail?.hidden_point) return;
-      setIsFollowing(false);
-      setSelectedTrail(trail);
-      // Delay so the tab transition finishes before Mapbox accepts setCamera.
-      // Clear the param inside the timeout — clearing it before causes useCallback
-      // deps to change, which re-runs useFocusEffect cleanup and cancels this timer.
-      const timer = setTimeout(() => {
-        cameraRef.current?.setCamera({
-          centerCoordinate: [trail.hidden_point!.longitude, trail.hidden_point!.latitude],
-          zoomLevel: 15,
-          animationDuration: 800,
-        });
-        navigation.setParams({ trailId: undefined });
-      }, 350);
-      return () => clearTimeout(timer);
-    }, [focusedTrailId, trails, navigation]),
-  );
-
-  // --- Recenter ---
-  const handleRecenter = () => {
-    if (!userCoords) return;
-    setIsFollowing(true);
-    cameraRef.current?.setCamera({
-      centerCoordinate: [userCoords.longitude, userCoords.latitude],
-      zoomLevel: 15,
-      animationDuration: 600,
-    });
-  };
-
-  // Capture initial center once at mount — never recomputed so GPS updates
-  // don't reset the camera zoom/position the user has set.
-  const initialCenterRef = useRef<[number, number] | null>(null);
-  if (initialCenterRef.current === null) {
-    const coords = getLastGpsPosition();
-    initialCenterRef.current = coords
-      ? [coords.longitude, coords.latitude]
-      : [-104.9903, 39.7392];
-  }
+  const {
+    cameraRef,
+    userCoords,
+    trails,
+    selectedTrail,
+    isFollowing,
+    loading,
+    initialCenter,
+    setSelectedTrail,
+    setIsFollowing,
+    handleRecenter,
+  } = useMap();
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -382,11 +32,11 @@ export default function MapScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Map</Text>
-        {loading && (
-          <Text style={styles.headerSub}>Loading trails...</Text>
-        )}
+        {loading && <Text style={styles.headerSub}>Loading trails...</Text>}
         {!loading && trails.length > 0 && (
-          <Text style={styles.headerSub}>{trails.length} trail{trails.length > 1 ? 's' : ''} on map</Text>
+          <Text style={styles.headerSub}>
+            {trails.length} trail{trails.length > 1 ? 's' : ''} on map
+          </Text>
         )}
       </View>
 
@@ -399,7 +49,7 @@ export default function MapScreen() {
           <Mapbox.Camera
             ref={cameraRef}
             defaultSettings={{
-              centerCoordinate: initialCenterRef.current,
+              centerCoordinate: initialCenter ?? [-104.9903, 39.7392],
               zoomLevel: 12,
             }}
           />
@@ -410,11 +60,16 @@ export default function MapScreen() {
           {/* Trail markers */}
           {trails.map(trail => {
             if (!trail.hidden_point) return null;
-            const isCustomIcon = trail.user_trail_status === 'completed' || trail.user_trail_status === 'unlocked';
+            const isCustomIcon =
+              trail.user_trail_status === 'completed' ||
+              trail.user_trail_status === 'unlocked';
             return (
               <Mapbox.MarkerView
                 key={trail.id}
-                coordinate={[trail.hidden_point.longitude, trail.hidden_point.latitude]}
+                coordinate={[
+                  trail.hidden_point.longitude,
+                  trail.hidden_point.latitude,
+                ]}
               >
                 <TouchableOpacity
                   onPress={() => {
@@ -422,12 +77,29 @@ export default function MapScreen() {
                     setIsFollowing(false);
                   }}
                   activeOpacity={0.8}
-                  style={isCustomIcon ? styles.markerCustom : [styles.marker, { backgroundColor: getMarkerColor(trail.user_trail_status) }]}
+                  style={
+                    isCustomIcon
+                      ? styles.markerCustom
+                      : [
+                          styles.marker,
+                          {
+                            backgroundColor: getMarkerColor(
+                              trail.user_trail_status,
+                            ),
+                          },
+                        ]
+                  }
                 >
                   {trail.user_trail_status === 'completed' ? (
-                    <Image source={require('../../../assets/marker_completed.png')} style={styles.markerImage} />
+                    <Image
+                      source={require('../../../assets/marker_completed.png')}
+                      style={styles.markerImage}
+                    />
                   ) : trail.user_trail_status === 'unlocked' ? (
-                    <Image source={require('../../../assets/marker_unlocked.png')} style={styles.markerImage} />
+                    <Image
+                      source={require('../../../assets/marker_unlocked.png')}
+                      style={styles.markerImage}
+                    />
                   ) : (
                     <Icon name="lock-closed" size={14} color="#fff" />
                   )}
@@ -443,7 +115,11 @@ export default function MapScreen() {
           onPress={handleRecenter}
           activeOpacity={0.8}
         >
-          <Icon name="locate" size={22} color={isFollowing ? '#fff' : Colors.blueGrey} />
+          <Icon
+            name="locate"
+            size={22}
+            color={isFollowing ? '#fff' : Colors.blueGrey}
+          />
         </TouchableOpacity>
 
         {/* Empty state */}
@@ -451,7 +127,9 @@ export default function MapScreen() {
           <View style={styles.emptyState}>
             <Icon name="map-outline" size={40} color="#9AA0A6" />
             <Text style={styles.emptyText}>No unlocked trails yet.</Text>
-            <Text style={styles.emptySubText}>Unlock trails in Explorer to see them here.</Text>
+            <Text style={styles.emptySubText}>
+              Unlock trails in Explorer to see them here.
+            </Text>
           </View>
         )}
       </View>
@@ -464,153 +142,6 @@ export default function MapScreen() {
           onClose={() => setSelectedTrail(null)}
         />
       )}
-
     </SafeAreaView>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
-
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#fff' },
-
-  header: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  headerTitle: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 24,
-    color: Colors.blueGrey,
-  },
-  headerSub: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 13,
-    color: '#9AA0A6',
-    marginTop: 2,
-  },
-
-  mapWrap: { flex: 1 },
-  map: { flex: 1 },
-
-  markerCustom: {
-    width: 40,
-    height: 40,
-  },
-  markerImage: {
-    width: 40,
-    height: 40,
-    resizeMode: 'contain',
-  },
-
-  marker: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-
-  recenterBtn: {
-    position: 'absolute',
-    bottom: 24,
-    right: 16,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  recenterBtnActive: {
-    backgroundColor: Colors.orange,
-  },
-
-  emptyState: {
-    position: 'absolute',
-    top: '40%',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  emptyText: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 16,
-    color: Colors.blueGrey,
-    marginTop: 12,
-  },
-  emptySubText: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 13,
-    color: '#9AA0A6',
-    textAlign: 'center',
-    marginTop: 4,
-  },
-
-  // Info sheet
-  infoSheet: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 20,
-    paddingBottom: 32,
-    paddingTop: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 10,
-  },
-  infoHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#E9ECEF',
-    alignSelf: 'center',
-    marginBottom: 16,
-  },
-  infoHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  infoName: {
-    fontFamily: Fonts.gothamBold,
-    fontSize: 16,
-    color: Colors.blueGrey,
-    flex: 1,
-    marginRight: 12,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  infoText: {
-    fontFamily: Fonts.firaSansRegular,
-    fontSize: 13,
-    color: Colors.blueGrey,
-  },
-  copyBtn: {
-    padding: 4,
-  },
-
-});
