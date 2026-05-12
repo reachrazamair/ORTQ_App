@@ -40,6 +40,7 @@ export default function ProfileScreen({ navigation }: Props) {
     totalQuests,
     region,
     memberSince,
+    isUserParticipant,
     loading,
     refreshing,
     signingOut,
@@ -97,6 +98,21 @@ export default function ProfileScreen({ navigation }: Props) {
             )}
           </View>
           <Text style={styles.displayName}>{displayName || 'Explorer'}</Text>
+          <View
+            style={[
+              styles.userTypeBadge,
+              isUserParticipant ? styles.badgeDefault : styles.badgeSecondary,
+            ]}
+          >
+            <Text
+              style={[
+                styles.userTypeBadgeText,
+                isUserParticipant ? styles.badgeTextDefault : styles.badgeTextSecondary,
+              ]}
+            >
+              {isUserParticipant ? 'Quest Participant' : 'Free Explorer'}
+            </Text>
+          </View>
           <Text style={styles.emailText}>{email}</Text>
         </View>
 

@@ -81,25 +81,13 @@ export default function AccountSettingsScreen({ navigation }: Props) {
         setEmailVerified(!!session.user.email_confirmed_at);
 
         try {
-          const now = new Date().toISOString();
-          const { data: activeQuests } = await supabase
-            .from('quests')
-            .select('id')
-            .lte('start_date', now)
-            .gte('end_date', now);
-
-          if (activeQuests && activeQuests.length > 0) {
-            const activeIds = activeQuests.map(q => q.id);
-            const { data: participation } = await supabase
-              .from('user_quests')
-              .select('id')
-              .eq('user_id', userId)
-              .in('quest_id', activeIds)
-              .limit(1);
-            setIsActiveParticipant((participation?.length ?? 0) > 0);
-          } else {
-            setIsActiveParticipant(false);
-          }
+          const { data: questData } = await supabase.rpc(
+            'get_active_quests_and_check_user',
+            {
+              input_user_id: userId,
+            },
+          );
+          setIsActiveParticipant(questData?.isUserParticipant ?? false);
         } catch {
           setIsActiveParticipant(false);
         }
@@ -208,11 +196,11 @@ export default function AccountSettingsScreen({ navigation }: Props) {
             right={
               isActiveParticipant ? (
                 <View style={styles.activeBadge}>
-                  <Text style={styles.activeText}>Active</Text>
+                  <Text style={styles.activeText}>Quest Participant</Text>
                 </View>
               ) : (
                 <View style={styles.inactiveBadge}>
-                  <Text style={styles.inactiveText}>Inactive</Text>
+                  <Text style={styles.inactiveText}>Free Explorer</Text>
                 </View>
               )
             }
@@ -304,12 +292,14 @@ const styles = StyleSheet.create({
   unverifiedText: { fontFamily: Fonts.firaSansBold, fontSize: 12, color: '#92400E' },
 
   activeBadge: {
-    backgroundColor: Colors.success,
+    backgroundColor: Colors.orange + '15',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: Colors.orange,
   },
-  activeText: { fontFamily: Fonts.firaSansBold, fontSize: 12, color: '#fff' },
+  activeText: { fontFamily: Fonts.firaSansBold, fontSize: 12, color: Colors.orange },
 
   inactiveBadge: {
     backgroundColor: '#E9ECEF',

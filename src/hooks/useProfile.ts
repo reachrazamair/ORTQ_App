@@ -18,6 +18,7 @@ export function useProfile() {
     totalQuests: 0,
     region: null,
     memberSince: null,
+    isUserParticipant: false,
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -47,9 +48,10 @@ export function useProfile() {
         totalQuests: 0,
         region: null,
         memberSince: null,
+        isUserParticipant: false,
       };
 
-      const [profile, questRows] = await Promise.all([
+      const [profile, questRows, questCheck] = await Promise.all([
         getProfile(user.id).catch((err: any) => {
           console.error('[useProfile] getProfile failed:', err);
           return null;
@@ -69,6 +71,9 @@ export function useProfile() {
             return null;
           }
         })(),
+        supabase.rpc('get_active_quests_and_check_user', {
+          input_user_id: user.id,
+        }),
       ]);
 
       if (profile) {
@@ -94,6 +99,10 @@ export function useProfile() {
           0,
         );
         newData.totalQuests = questRows.length;
+      }
+
+      if (questCheck?.data) {
+        newData.isUserParticipant = !!questCheck.data.isUserParticipant;
       }
 
       setData(newData);

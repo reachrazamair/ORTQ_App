@@ -69,6 +69,33 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     color: '#687076',
   },
+  userTypeBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  userTypeBadgeText: {
+    fontFamily: Fonts.firaSansBold,
+    fontSize: 11,
+    textTransform: 'uppercase',
+  },
+  badgeDefault: {
+    backgroundColor: Colors.orange + '20',
+    borderWidth: 1,
+    borderColor: Colors.orange,
+  },
+  badgeSecondary: {
+    backgroundColor: '#F1F3F5',
+    borderWidth: 1,
+    borderColor: '#D7DBDF',
+  },
+  badgeTextDefault: {
+    color: Colors.orange,
+  },
+  badgeTextSecondary: {
+    color: '#687076',
+  },
 
   // Stats
   statsRow: {

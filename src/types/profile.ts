@@ -25,4 +25,5 @@ export type ProfileData = {
   totalQuests: number;
   region: string | null;
   memberSince: string | null;
+  isUserParticipant: boolean;
 };
