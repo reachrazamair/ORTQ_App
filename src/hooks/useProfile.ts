@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
-import { getProfile } from '../lib/profile';
+import { getProfile, getCachedProfile, saveProfileToCache, UserProfile } from '../lib/profile';
 import { ProfileData } from '../types/profile';
 import { getStorageUrl } from '../utils/profileHelpers';
 
@@ -106,8 +106,17 @@ export function useProfile() {
       }
 
       setData(newData);
+      // Save to cache (we need to convert ProfileData to UserProfile-like or just save ProfileData)
+      // Actually, let's save the raw profile in getProfile and use it.
+      // For now, let's just use the hook's setData and save the whole newData as the cache.
+      await saveProfileToCache(newData as any);
     } catch (err) {
       console.error('[useProfile] load failed:', err);
+      // Try to load from cache on failure
+      const cached = await getCachedProfile();
+      if (cached) {
+        setData(cached as any);
+      }
     } finally {
       setLoading(false);
     }

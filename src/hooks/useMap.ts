@@ -157,6 +157,14 @@ export function useMap() {
           }
         } catch (err) {
           console.error('[MapScreen] Refresh failed:', err);
+          const cached = await getCachedTrails();
+          if (cached.length > 0) {
+            cached.forEach(t => {
+              if (t.user_trail_status === 'completed')
+                completedIds.current.add(t.id);
+            });
+            setTrails(cached as TrailMarker[]);
+          }
         }
         flushCompletionQueue().catch(() => {});
       };

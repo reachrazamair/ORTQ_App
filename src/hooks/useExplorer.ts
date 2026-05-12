@@ -4,7 +4,7 @@ import Geolocation from '@react-native-community/geolocation';
 import { promptForEnableLocationIfNeeded } from 'react-native-android-location-enabler';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
-import { getProfile } from '../lib/profile';
+import { getProfile, getCachedProfile } from '../lib/profile';
 import { downloadOfflinePack } from '../lib/offlineMap';
 import { emitTrailUnlocked, onTrailCompleted } from '../lib/trailEvents';
 import {
@@ -101,7 +101,19 @@ export function useExplorer() {
             }
           }
         } catch {
-          /* non-blocking */
+          // Try loading from cache if network fails
+          const cached = await getCachedProfile();
+          if (cached) {
+            setUserKeys(cached.keys ?? 0);
+            if (cached.latitude != null && cached.longitude != null) {
+              setProfileLat(cached.latitude);
+              setProfileLon(cached.longitude);
+              profileCoordsRef.current = {
+                lat: cached.latitude,
+                lon: cached.longitude,
+              };
+            }
+          }
         }
 
         try {

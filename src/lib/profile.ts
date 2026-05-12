@@ -1,4 +1,7 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
+
+const PROFILE_CACHE_KEY = 'ortq:profile_cache_v2';
 
 export interface UserProfile {
   id: string;
@@ -78,4 +81,19 @@ export async function updateProfile(
     .eq('id', userId);
 
   if (error) throw new Error(error.message);
+}
+
+export async function getCachedProfile(): Promise<UserProfile | null> {
+  try {
+    const raw = await AsyncStorage.getItem(PROFILE_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveProfileToCache(profile: UserProfile): Promise<void> {
+  try {
+    await AsyncStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(profile));
+  } catch {}
 }
