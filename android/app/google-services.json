@@ -1,0 +1,34 @@
+{
+  "project_info": {
+    "project_number": "47660762445",
+    "project_id": "off-road-treasure-quest",
+    "storage_bucket": ""
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:47660762445:android:0000000000000000",
+        "android_client_info": {
+          "package_name": "com.ortq.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "47660762445-d5u4gmgiqhum7til8r2vnltvjfp592t0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ortq.app",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38ca8f625"
+          }
+        },
+        {
+          "client_id": "47660762445-0r56vv8b3gq0imvsisu6qscn5cn334a7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [],
+      "services": {}
+    }
+  ],
+  "configuration_version": "1"
+}

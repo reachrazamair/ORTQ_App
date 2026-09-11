@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -17,13 +17,14 @@ import { useExplorer } from '../../hooks/useExplorer';
 import TrailCard from '../../components/explorer/TrailCard';
 import FilterModal from '../../components/explorer/FilterModal';
 import TrailDetailModal from '../../components/explorer/TrailDetailModal';
-import JoinQuestModal from '../../components/explorer/JoinQuestModal';
+import BuyKeysModal from '../../components/profile/BuyKeysModal';
 import NoAccessLocation from '../../components/explorer/NoAccessLocation';
 import { styles } from '../../styles/explorerStyles';
 import { Trail } from '../../types/explorer';
 
 export default function ExplorerScreen() {
   const navigation = useNavigation<any>();
+  const [showBuyKeys, setShowBuyKeys] = useState(false);
   const {
     trails,
     variants,
@@ -34,7 +35,6 @@ export default function ExplorerScreen() {
     userLon,
     isUserParticipant,
     activeQuests,
-    showJoinQuest,
     hasLocation,
     loadingLocation,
     locationPermissionDenied,
@@ -47,7 +47,6 @@ export default function ExplorerScreen() {
     hasAttemptedLoad,
     refreshing,
     hasMore,
-    setShowJoinQuest,
     setShowFilters,
     setSelectedTrail,
     handleApplyFilters,
@@ -58,13 +57,13 @@ export default function ExplorerScreen() {
     getLocation,
   } = useExplorer();
 
-  const handleJoinQuest = useCallback(() => {
+  const handleBuyKeys = useCallback(() => {
     if (!userId) {
       navigation.navigate('Profile');
       return;
     }
-    setShowJoinQuest(true);
-  }, [userId, navigation, setShowJoinQuest]);
+    setShowBuyKeys(true);
+  }, [userId, navigation]);
 
   const renderTrail = useCallback(
     ({ item }: { item: Trail }) => (
@@ -76,7 +75,7 @@ export default function ExplorerScreen() {
         activeQuests={activeQuests}
         onShowMore={t => setSelectedTrail(t)}
         onUnlock={handleUnlock}
-        onJoinQuest={handleJoinQuest}
+        onBuyKeys={handleBuyKeys}
         onViewOnMap={trailId => navigation.navigate('Map', { trailId })}
       />
     ),
@@ -86,7 +85,7 @@ export default function ExplorerScreen() {
       isUserParticipant,
       activeQuests,
       handleUnlock,
-      handleJoinQuest,
+      handleBuyKeys,
       setSelectedTrail,
       navigation,
     ],
@@ -218,11 +217,13 @@ export default function ExplorerScreen() {
         onClose={() => setSelectedTrail(null)}
       />
 
-      <JoinQuestModal
-        visible={showJoinQuest}
-        quests={activeQuests}
+      <BuyKeysModal
+        visible={showBuyKeys}
         userId={userId}
-        onClose={() => setShowJoinQuest(false)}
+        onClose={() => {
+          setShowBuyKeys(false);
+          handleRefresh();
+        }}
       />
     </SafeAreaView>
   );

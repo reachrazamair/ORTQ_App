@@ -37,11 +37,12 @@ interface TrailCardProps {
   trail: Trail;
   variants: Variants;
   userKeys: number;
-  isUserParticipant: boolean;
-  activeQuests: Quest[];
+  isUserParticipant?: boolean;
+  activeQuests?: Quest[];
   onShowMore: (t: Trail) => void;
   onUnlock: (t: Trail) => void;
-  onJoinQuest: () => void;
+  onBuyKeys: () => void;
+  onJoinQuest?: () => void;
   onViewOnMap: (trailId: string) => void;
 }
 
@@ -53,6 +54,7 @@ export default function TrailCard({
   activeQuests,
   onShowMore,
   onUnlock,
+  onBuyKeys,
   onJoinQuest,
   onViewOnMap,
 }: TrailCardProps) {
@@ -201,30 +203,22 @@ export default function TrailCard({
           </TouchableOpacity>
         )}
 
-        {isLocked && !isUserParticipant && (
-          <TouchableOpacity
-            style={[styles.footerBtn, styles.footerBtnUnlock]}
-            onPress={onJoinQuest}
-          >
-            <Icon name="ticket-outline" size={15} color="#fff" />
-            <Text style={styles.footerBtnText}>Join Quest</Text>
-          </TouchableOpacity>
-        )}
-
-        {isLocked && isUserParticipant && canUnlock && (
+        {isLocked && canUnlock && (
           <TouchableOpacity
             style={[styles.footerBtn, styles.footerBtnUnlock]}
             onPress={() => onUnlock(trail)}
           >
             <Icon name="key-outline" size={15} color="#fff" />
-            <Text style={styles.footerBtnText}>Unlock</Text>
+            <Text style={styles.footerBtnText}>
+              Unlock Trail ({trail.keys_to_unlock} {trail.keys_to_unlock === 1 ? 'Key' : 'Keys'})
+            </Text>
           </TouchableOpacity>
         )}
 
-        {isLocked && isUserParticipant && !canUnlock && (
+        {isLocked && !canUnlock && (
           <TouchableOpacity
             style={[styles.footerBtn, styles.footerBtnOutline]}
-            onPress={onJoinQuest}
+            onPress={onBuyKeys || onJoinQuest}
           >
             <Icon name="add-circle-outline" size={15} color={Colors.blueGrey} />
             <Text style={styles.footerBtnOutlineText}>Buy More Keys</Text>

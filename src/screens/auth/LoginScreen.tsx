@@ -14,6 +14,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
@@ -22,6 +23,11 @@ import { getProfile } from '../../lib/profile';
 import { navigationRef } from '../../../App';
 import { loginSchema } from '../../utils/schemas';
 import CustomInput from '../../components/common/CustomInput';
+import {
+  signInWithGoogle,
+  isErrorWithCode,
+  statusCodes,
+} from '../../lib/googleAuth';
 
 type Props = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'>;
@@ -31,6 +37,7 @@ export default function LoginScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useFocusEffect(
@@ -101,6 +108,44 @@ export default function LoginScreen({ navigation }: Props) {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    setGoogleLoading(true);
+    try {
+      const session = await signInWithGoogle();
+      if (!session) {
+        // User cancelled — do nothing
+        setGoogleLoading(false);
+        return;
+      }
+      setGoogleLoading(false);
+      if (navigationRef.isReady()) {
+        setTimeout(() => {
+          if (navigationRef.isReady()) {
+            navigationRef.navigate('Explorer');
+          }
+        }, 100);
+      }
+    } catch (err: any) {
+      setGoogleLoading(false);
+      if (isErrorWithCode(err)) {
+        if (err.code === statusCodes.SIGN_IN_CANCELLED) return;
+        if (err.code === statusCodes.IN_PROGRESS) return;
+        if (err.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+          Alert.alert('Error', 'Google Play Services is not available on this device.');
+          return;
+        }
+      }
+      if (err.message === 'ACCOUNT_SUSPENDED') {
+        Alert.alert(
+          'Account Unavailable',
+          'Your account has been suspended or deleted. Please contact support.',
+        );
+        return;
+      }
+      Alert.alert('Google Sign-In Failed', err.message ?? 'An unexpected error occurred.');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -164,6 +209,31 @@ export default function LoginScreen({ navigation }: Props) {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={styles.loginButtonText}>Sign In</Text>
+              )}
+            </TouchableOpacity>
+
+            {/* ── Or continue with ── */}
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>Or continue with</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.googleButton,
+                (loading || googleLoading) && styles.disabledButton,
+              ]}
+              onPress={handleGoogleLogin}
+              disabled={loading || googleLoading}
+            >
+              {googleLoading ? (
+                <ActivityIndicator color={Colors.blueGrey} />
+              ) : (
+                <>
+                  <Ionicons name="logo-google" size={20} color="#DB4437" />
+                  <Text style={styles.googleButtonText}>Continue with Google</Text>
+                </>
               )}
             </TouchableOpacity>
 
@@ -237,6 +307,42 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.gothamBold,
     fontSize: 16,
     color: '#fff',
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E8EAED',
+  },
+  dividerText: {
+    fontFamily: Fonts.firaSansRegular,
+    fontSize: 13,
+    color: '#9AA0A6',
+  },
+  googleButton: {
+    height: 56,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#E8EAED',
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  googleButtonText: {
+    fontFamily: Fonts.gothamBold,
+    fontSize: 15,
+    color: Colors.blueGrey,
   },
   footer: {
     flexDirection: 'row',

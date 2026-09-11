@@ -64,7 +64,6 @@ function ActionRow({
 export default function AccountSettingsScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [emailVerified, setEmailVerified] = useState(false);
-  const [isActiveParticipant, setIsActiveParticipant] = useState(false);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
 
@@ -76,22 +75,8 @@ export default function AccountSettingsScreen({ navigation }: Props) {
         const session = sessionData.session;
         if (!session) { setLoading(false); return; }
 
-        const userId = session.user.id;
         setEmail(session.user.email ?? '');
         setEmailVerified(!!session.user.email_confirmed_at);
-
-        try {
-          const { data: questData } = await supabase.rpc(
-            'get_active_quests_and_check_user',
-            {
-              input_user_id: userId,
-            },
-          );
-          setIsActiveParticipant(questData?.isUserParticipant ?? false);
-        } catch {
-          setIsActiveParticipant(false);
-        }
-
         setLoading(false);
       };
       load();
@@ -194,15 +179,9 @@ export default function AccountSettingsScreen({ navigation }: Props) {
           <SettingRow
             label="Quest Participation"
             right={
-              isActiveParticipant ? (
-                <View style={styles.activeBadge}>
-                  <Text style={styles.activeText}>Quest Participant</Text>
-                </View>
-              ) : (
-                <View style={styles.inactiveBadge}>
-                  <Text style={styles.inactiveText}>Free Explorer</Text>
-                </View>
-              )
+              <View style={styles.activeBadge}>
+                <Text style={styles.activeText}>Quest Participant</Text>
+              </View>
             }
           />
           <View style={styles.rowDivider} />
@@ -300,14 +279,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.orange,
   },
   activeText: { fontFamily: Fonts.firaSansBold, fontSize: 12, color: Colors.orange },
-
-  inactiveBadge: {
-    backgroundColor: '#E9ECEF',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  inactiveText: { fontFamily: Fonts.firaSansBold, fontSize: 12, color: '#687076' },
 
   actionBtn: {
     borderWidth: 1,

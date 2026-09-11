@@ -28,6 +28,12 @@ export interface UserProfile {
   roles: { name: string } | null;
   city: { id: string; name: string } | null;
   state: { id: string; name: string; abbreviation: string; region: { id: string; name: string } | null } | null;
+  free_keys?: number;
+  purchased_keys?: number;
+  is_ad_free?: boolean;
+  subscription_tier?: string;
+  subscription_status?: string;
+  subscription_expires_at?: string | null;
 }
 
 export async function getProfile(userId: string): Promise<UserProfile | null> {

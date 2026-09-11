@@ -26,4 +26,11 @@ export type ProfileData = {
   region: string | null;
   memberSince: string | null;
   isUserParticipant: boolean;
+  free_keys?: number;
+  purchased_keys?: number;
+  is_ad_free?: boolean;
+  subscription_tier?: string;
+  subscription_status?: string;
+  subscription_expires_at?: string | null;
 };
+

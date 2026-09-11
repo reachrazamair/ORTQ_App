@@ -42,7 +42,6 @@ export function useExplorer() {
   const [profileLon, setProfileLon] = useState<number | null>(null);
   const [isUserParticipant, setIsUserParticipant] = useState(false);
   const [activeQuests, setActiveQuests] = useState<Quest[]>([]);
-  const [showJoinQuest, setShowJoinQuest] = useState(false);
   const [hasLocation, setHasLocation] = useState(false);
   const [loadingLocation, setLoadingLocation] = useState(true);
   const [locationPermissionDenied, setLocationPermissionDenied] =
@@ -661,7 +660,6 @@ export function useExplorer() {
     userLon,
     isUserParticipant,
     activeQuests,
-    showJoinQuest,
     hasLocation,
     loadingLocation,
     locationPermissionDenied,
@@ -674,7 +672,6 @@ export function useExplorer() {
     hasAttemptedLoad,
     refreshing,
     hasMore,
-    setShowJoinQuest,
     setShowFilters,
     setSelectedTrail,
     handleApplyFilters,
