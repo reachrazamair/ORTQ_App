@@ -20,6 +20,7 @@ import { Colors } from '../theme/colors';
 import { Fonts } from '../theme/fonts';
 import { useResponsive } from '../hooks/useResponsive';
 import { supabase } from '../lib/supabase';
+import { getProfile, isProfileComplete } from '../lib/profile';
 import {
   getCachedTrails,
   saveAllTrailsToCache,
@@ -35,6 +36,7 @@ import CommunityStack from './CommunityStack';
 import LeaderboardScreen from '../screens/main/LeaderboardScreen';
 import ExplorerScreen from '../screens/main/ExplorerScreen';
 import MapScreen from '../screens/main/MapScreen';
+import { navigationRef } from '../../App';
 
 export type AppTabParamList = {
   Explorer: undefined;
@@ -137,6 +139,42 @@ function PaymentResultModal({
 }
 
 // ---------------------------------------------------------------------------
+// Incomplete Profile Modal
+// ---------------------------------------------------------------------------
+
+function IncompleteProfileModal({
+  visible,
+  onClose,
+  onGoToProfile,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onGoToProfile: () => void;
+}) {
+  return (
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
+      <View style={styles.overlay}>
+        <View style={styles.sheet}>
+          <View style={[styles.iconWrap, { backgroundColor: '#FFF7ED' }]}>
+            <Icon name="person-circle-outline" size={56} color={Colors.orange} />
+          </View>
+          <Text style={[styles.title, { color: Colors.blueGrey }]}>Incomplete Profile</Text>
+          <Text style={styles.subtitle}>
+            Please fill in the required information to access all the features.
+          </Text>
+          <TouchableOpacity style={styles.btn} onPress={onGoToProfile}>
+            <Text style={styles.btnText}>Complete Profile</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.dismissBtn} onPress={onClose}>
+            <Text style={styles.dismissBtnText}>Dismiss</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Completion Modal
 // ---------------------------------------------------------------------------
 
@@ -205,6 +243,8 @@ export default function AppNavigator({ session }: { session: Session | null }) {
   const { isCompact } = useResponsive();
   const [completedInfo, setCompletedInfo] = useState<CompletedInfo | null>(null);
   const [paymentResult, setPaymentResult] = useState<'success' | 'cancel' | null>(null);
+  const [profileComplete, setProfileComplete] = useState<boolean>(true);
+  const [incompleteProfileVisible, setIncompleteProfileVisible] = useState(false);
 
   // Refs so GPS callback always sees latest values without restarting the watch
   const activeTrailsRef = useRef<VerifiableTrail[]>([]);
@@ -252,6 +292,36 @@ export default function AppNavigator({ session }: { session: Session | null }) {
         });
     } catch { /* offline — existing cache stays intact */ }
   }, []);
+
+  // --- Check profile completion ---
+  const checkProfileCompletion = useCallback(async () => {
+    const uid = session?.user?.id ?? null;
+    if (!uid) {
+      setProfileComplete(true); // guests are not blocked (they see AuthNavigator)
+      return;
+    }
+    try {
+      const profile = await getProfile(uid);
+      setProfileComplete(isProfileComplete(profile));
+    } catch {
+      setProfileComplete(true); // fail-open: don't block on network error
+    }
+  }, [session]);
+
+  // Initial check and re-check whenever session changes
+  useEffect(() => {
+    checkProfileCompletion();
+  }, [checkProfileCompletion]);
+
+  // Re-check every time navigation state changes (e.g. user returns from EditProfile)
+  useEffect(() => {
+    const ref = navigationRef.current;
+    if (!ref) return;
+    const unsubscribe = ref.addListener('state', () => {
+      checkProfileCompletion();
+    });
+    return unsubscribe;
+  }, [checkProfileCompletion]);
 
   // --- Load unlocked trails on mount ---
   useEffect(() => {
@@ -454,6 +524,16 @@ export default function AppNavigator({ session }: { session: Session | null }) {
     }
   };
 
+  // Helper: intercept tab press if profile is incomplete
+  const makeTabListeners = (tabName: keyof AppTabParamList) => ({
+    tabPress: (e: any) => {
+      if (session && !profileComplete && tabName !== 'Profile') {
+        e.preventDefault();
+        setIncompleteProfileVisible(true);
+      }
+    },
+  });
+
   return (
     <>
       <Tab.Navigator
@@ -475,6 +555,7 @@ export default function AppNavigator({ session }: { session: Session | null }) {
               <Icon name="compass-outline" size={size} color={color} />
             ),
           }}
+          listeners={makeTabListeners('Explorer')}
         />
         <Tab.Screen
           name="Map"
@@ -484,6 +565,7 @@ export default function AppNavigator({ session }: { session: Session | null }) {
               <Icon name="map-outline" size={size} color={color} />
             ),
           }}
+          listeners={makeTabListeners('Map')}
         />
         <Tab.Screen
           name="Community"
@@ -493,6 +575,7 @@ export default function AppNavigator({ session }: { session: Session | null }) {
               <Icon name="people-outline" size={size} color={color} />
             ),
           }}
+          listeners={makeTabListeners('Community')}
         />
         <Tab.Screen
           name="Leaderboard"
@@ -503,6 +586,7 @@ export default function AppNavigator({ session }: { session: Session | null }) {
               <Icon name="trophy-outline" size={size} color={color} />
             ),
           }}
+          listeners={makeTabListeners('Leaderboard')}
         />
         <Tab.Screen
           name="Profile"
@@ -525,6 +609,17 @@ export default function AppNavigator({ session }: { session: Session | null }) {
         visible={!!paymentResult}
         success={paymentResult === 'success'}
         onClose={() => setPaymentResult(null)}
+      />
+
+      <IncompleteProfileModal
+        visible={incompleteProfileVisible}
+        onClose={() => setIncompleteProfileVisible(false)}
+        onGoToProfile={() => {
+          setIncompleteProfileVisible(false);
+          if (navigationRef.isReady()) {
+            navigationRef.navigate('Profile', { screen: 'EditProfile' });
+          }
+        }}
       />
     </>
   );
@@ -583,10 +678,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 48,
     paddingVertical: 14,
     borderRadius: 12,
+    width: '100%',
+    alignItems: 'center',
   },
   btnText: {
     fontFamily: Fonts.firaSansBold,
     fontSize: 15,
     color: '#fff',
+  },
+  dismissBtn: {
+    marginTop: 12,
+    paddingVertical: 10,
+    width: '100%',
+    alignItems: 'center',
+  },
+  dismissBtnText: {
+    fontFamily: Fonts.firaSansRegular,
+    fontSize: 14,
+    color: '#9AA0A6',
   },
 });

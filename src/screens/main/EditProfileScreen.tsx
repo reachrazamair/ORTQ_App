@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActionSheetIOS,
   ActivityIndicator,
@@ -132,6 +132,7 @@ function ListPickerModal<T extends { id: string; name: string }>({
 }
 
 export default function EditProfileScreen({ navigation }: Props) {
+  const scrollRef = useRef<ScrollView>(null);
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [backgroundUri, setBackgroundUri] = useState<string | null>(null);
   const [email, setEmail] = useState('');
@@ -393,6 +394,24 @@ export default function EditProfileScreen({ navigation }: Props) {
 
     if (Object.keys(fieldErrors).length > 0) {
       setErrors(fieldErrors);
+      // Build a human-readable list of missing fields for the alert
+      const missingLabels: string[] = [];
+      if (fieldErrors.fullName) missingLabels.push('Full Name');
+      if (fieldErrors.alias) missingLabels.push('Alias / Username');
+      if (fieldErrors.address) missingLabels.push('Address Line');
+      if (fieldErrors.stateId) missingLabels.push('State');
+      if (fieldErrors.cityId) missingLabels.push('City');
+      if (fieldErrors.phone) missingLabels.push('Phone');
+      if (fieldErrors.zipCode) missingLabels.push('Zip Code');
+      if (fieldErrors.year) missingLabels.push('Year');
+
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+      Alert.alert(
+        'Required Fields Missing',
+        missingLabels.length > 0
+          ? `Please fill in the following fields:\n\n• ${missingLabels.join('\n• ')}`
+          : 'Please fix the highlighted errors before saving.',
+      );
       return;
     }
 
@@ -476,11 +495,29 @@ export default function EditProfileScreen({ navigation }: Props) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Back + Title */}
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} disabled={saving}>
-            <Ionicons name="chevron-back" size={24} color={Colors.blueGrey} />
-          </TouchableOpacity>
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header: back button + save button */}
+          <View style={styles.headerRow}>
+            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} disabled={saving}>
+              <Ionicons name="chevron-back" size={24} color={Colors.blueGrey} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.saveHeaderBtn, saving && { opacity: 0.6 }]}
+              onPress={handleSave}
+              disabled={saving}
+            >
+              {saving ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={styles.saveHeaderBtnText}>Save</Text>
+              )}
+            </TouchableOpacity>
+          </View>
 
           <View style={styles.titleWrap}>
             <Text style={styles.title}>Edit Profile</Text>
@@ -747,6 +784,13 @@ const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scrollContent: { padding: 24, paddingBottom: 48, flexGrow: 1 },
 
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+
   backButton: {
     width: 40,
     height: 40,
@@ -754,10 +798,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F9FA',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
   },
 
-
+  saveHeaderBtn: {
+    backgroundColor: Colors.orange,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minWidth: 70,
+    justifyContent: 'center',
+  },
+  saveHeaderBtnText: {
+    fontFamily: Fonts.firaSansBold,
+    fontSize: 14,
+    color: '#fff',
+  },
   titleWrap: { marginBottom: 24 },
   title: { fontFamily: Fonts.gothamBold, fontSize: 28, color: Colors.blueGrey, marginBottom: 6 },
   subtitle: { fontFamily: Fonts.firaSansRegular, fontSize: 15, color: '#687076' },

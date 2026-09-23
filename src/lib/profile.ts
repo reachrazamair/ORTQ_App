@@ -103,3 +103,18 @@ export async function saveProfileToCache(profile: UserProfile): Promise<void> {
     await AsyncStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(profile));
   } catch {}
 }
+
+/**
+ * Returns true if the user's profile has all the required fields filled in:
+ * full name, alias/username, state, city, and address line.
+ */
+export function isProfileComplete(profile: UserProfile | null): boolean {
+  if (!profile) return false;
+  return !!(
+    profile.full_name?.trim() &&
+    profile.alias?.trim() &&
+    profile.state?.id &&
+    profile.city?.id &&
+    profile.address?.trim()
+  );
+}
