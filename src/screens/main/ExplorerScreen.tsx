@@ -25,6 +25,8 @@ import { Trail } from '../../types/explorer';
 export default function ExplorerScreen() {
   const navigation = useNavigation<any>();
   const [showBuyKeys, setShowBuyKeys] = useState(false);
+
+
   const {
     trails,
     variants,

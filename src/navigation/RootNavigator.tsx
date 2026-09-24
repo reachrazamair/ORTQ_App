@@ -8,6 +8,7 @@ import { emitPaymentSuccess, emitPaymentCancel } from '../lib/trailEvents';
 import AuthNavigator from './AuthNavigator';
 import AppNavigator from './AppNavigator';
 import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
+import { ProfileProvider } from '../contexts/ProfileContext';
 
 export default function RootNavigator() {
   const [session, setSession] = useState<Session | null>(null);
@@ -177,5 +178,10 @@ export default function RootNavigator() {
     );
   }
 
-  return <AppNavigator session={session} />;
+  return (
+    <ProfileProvider session={session}>
+      <AppNavigator session={session} />
+    </ProfileProvider>
+  );
 }
+

@@ -20,7 +20,7 @@ import { Colors } from '../theme/colors';
 import { Fonts } from '../theme/fonts';
 import { useResponsive } from '../hooks/useResponsive';
 import { supabase } from '../lib/supabase';
-import { getProfile, isProfileComplete } from '../lib/profile';
+import { useProfileContext } from '../contexts/ProfileContext';
 import {
   getCachedTrails,
   saveAllTrailsToCache,
@@ -144,15 +144,15 @@ function PaymentResultModal({
 
 function IncompleteProfileModal({
   visible,
-  onClose,
   onGoToProfile,
+  onSignOut,
 }: {
   visible: boolean;
-  onClose: () => void;
   onGoToProfile: () => void;
+  onSignOut: () => void;
 }) {
   return (
-    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onGoToProfile}>
       <View style={styles.overlay}>
         <View style={styles.sheet}>
           <View style={[styles.iconWrap, { backgroundColor: '#FFF7ED' }]}>
@@ -160,13 +160,13 @@ function IncompleteProfileModal({
           </View>
           <Text style={[styles.title, { color: Colors.blueGrey }]}>Incomplete Profile</Text>
           <Text style={styles.subtitle}>
-            Please fill in the required information to access all the features.
+            You must complete your profile to explore trails and access all features.
           </Text>
           <TouchableOpacity style={styles.btn} onPress={onGoToProfile}>
             <Text style={styles.btnText}>Complete Profile</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.dismissBtn} onPress={onClose}>
-            <Text style={styles.dismissBtnText}>Dismiss</Text>
+          <TouchableOpacity style={styles.dismissBtn} onPress={onSignOut}>
+            <Text style={[styles.dismissBtnText, { color: Colors.error }]}>Sign Out</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -243,8 +243,26 @@ export default function AppNavigator({ session }: { session: Session | null }) {
   const { isCompact } = useResponsive();
   const [completedInfo, setCompletedInfo] = useState<CompletedInfo | null>(null);
   const [paymentResult, setPaymentResult] = useState<'success' | 'cancel' | null>(null);
-  const [profileComplete, setProfileComplete] = useState<boolean>(true);
   const [incompleteProfileVisible, setIncompleteProfileVisible] = useState(false);
+
+  // Profile completion — single source of truth via ProfileContext.
+  // ProfileContext handles cache + network fetch and updates isComplete reactively.
+  const { isComplete: profileComplete } = useProfileContext();
+
+  // When profile flips from incomplete → complete, dismiss the modal automatically
+  useEffect(() => {
+    if (profileComplete) {
+      setIncompleteProfileVisible(false);
+    }
+  }, [profileComplete]);
+
+  // Redirect to EditProfile once we know the profile is incomplete
+  useEffect(() => {
+    if (session && !profileComplete && navigationRef.isReady()) {
+      (navigationRef as any).navigate('Profile', { screen: 'EditProfile' });
+    }
+  }, [session, profileComplete]);
+
 
   // Refs so GPS callback always sees latest values without restarting the watch
   const activeTrailsRef = useRef<VerifiableTrail[]>([]);
@@ -293,35 +311,8 @@ export default function AppNavigator({ session }: { session: Session | null }) {
     } catch { /* offline — existing cache stays intact */ }
   }, []);
 
-  // --- Check profile completion ---
-  const checkProfileCompletion = useCallback(async () => {
-    const uid = session?.user?.id ?? null;
-    if (!uid) {
-      setProfileComplete(true); // guests are not blocked (they see AuthNavigator)
-      return;
-    }
-    try {
-      const profile = await getProfile(uid);
-      setProfileComplete(isProfileComplete(profile));
-    } catch {
-      setProfileComplete(true); // fail-open: don't block on network error
-    }
-  }, [session]);
 
-  // Initial check and re-check whenever session changes
-  useEffect(() => {
-    checkProfileCompletion();
-  }, [checkProfileCompletion]);
 
-  // Re-check every time navigation state changes (e.g. user returns from EditProfile)
-  useEffect(() => {
-    const ref = navigationRef.current;
-    if (!ref) return;
-    const unsubscribe = ref.addListener('state', () => {
-      checkProfileCompletion();
-    });
-    return unsubscribe;
-  }, [checkProfileCompletion]);
 
   // --- Load unlocked trails on mount ---
   useEffect(() => {
@@ -613,12 +604,15 @@ export default function AppNavigator({ session }: { session: Session | null }) {
 
       <IncompleteProfileModal
         visible={incompleteProfileVisible}
-        onClose={() => setIncompleteProfileVisible(false)}
         onGoToProfile={() => {
           setIncompleteProfileVisible(false);
           if (navigationRef.isReady()) {
-            navigationRef.navigate('Profile', { screen: 'EditProfile' });
+            (navigationRef as any).navigate('Profile', { screen: 'EditProfile' });
           }
+        }}
+        onSignOut={async () => {
+          setIncompleteProfileVisible(false);
+          await supabase.auth.signOut();
         }}
       />
     </>

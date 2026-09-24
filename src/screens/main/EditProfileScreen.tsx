@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActionSheetIOS,
   ActivityIndicator,
   Alert,
+  BackHandler,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -18,15 +19,18 @@ import {
   View,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaskInput from 'react-native-mask-input';
 import Config from 'react-native-config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 import { supabase } from '../../lib/supabase';
 import { getProfile, updateProfile } from '../../lib/profile';
+import { useProfileContext } from '../../contexts/ProfileContext';
 
 const getStorageUrl = (bucket: string, fileName: string) =>
   `${Config.SUPABASE_URL}/storage/v1/object/public/${bucket}/${fileName}`;
@@ -87,16 +91,30 @@ function ListPickerModal<T extends { id: string; name: string }>({
   title,
   items,
   selectedId,
+  loading = false,
   onSelect,
   onClose,
+  onRetry,
 }: {
   visible: boolean;
   title: string;
   items: T[];
   selectedId: string;
+  loading?: boolean;
   onSelect: (item: T) => void;
   onClose: () => void;
+  onRetry?: () => void;
 }) {
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    if (visible) setSearch('');
+  }, [visible]);
+
+  const filtered = search.trim()
+    ? items.filter(i => i.name.toLowerCase().includes(search.trim().toLowerCase()))
+    : items;
+
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
@@ -107,32 +125,106 @@ function ListPickerModal<T extends { id: string; name: string }>({
               <Ionicons name="close" size={24} color={Colors.blueGrey} />
             </TouchableOpacity>
           </View>
-          <FlatList
-            data={items}
-            keyExtractor={item => item.id}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[styles.modalItem, item.id === selectedId && styles.modalItemSelected]}
-                onPress={() => { onSelect(item); onClose(); }}
-              >
-                <Text style={[styles.modalItemText, item.id === selectedId && styles.modalItemTextSelected]}>
-                  {item.name}
-                </Text>
-                {item.id === selectedId && (
-                  <Ionicons name="checkmark" size={18} color={Colors.orange} />
-                )}
-              </TouchableOpacity>
-            )}
-            ItemSeparatorComponent={() => <View style={styles.modalSeparator} />}
-          />
+
+          {items.length > 5 && (
+            <View style={styles.modalSearchWrap}>
+              <Ionicons name="search-outline" size={18} color="#9AA0A6" />
+              <TextInput
+                style={styles.modalSearchInput}
+                placeholder="Search..."
+                placeholderTextColor="#9AA0A6"
+                value={search}
+                onChangeText={setSearch}
+                autoCorrect={false}
+              />
+              {search.length > 0 && (
+                <TouchableOpacity onPress={() => setSearch('')}>
+                  <Ionicons name="close-circle" size={16} color="#9AA0A6" />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {loading ? (
+            <View style={styles.modalCenterContent}>
+              <ActivityIndicator size="large" color={Colors.orange} />
+              <Text style={styles.modalLoadingText}>Loading...</Text>
+            </View>
+          ) : filtered.length === 0 ? (
+            <View style={styles.modalCenterContent}>
+              <Text style={styles.modalEmptyText}>
+                {items.length === 0 ? 'No items available' : 'No matches found'}
+              </Text>
+              {items.length === 0 && onRetry && (
+                <TouchableOpacity style={styles.modalRetryBtn} onPress={onRetry}>
+                  <Text style={styles.modalRetryBtnText}>Retry Loading</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : (
+            <FlatList
+              data={filtered}
+              keyExtractor={item => item.id}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[styles.modalItem, item.id === selectedId && styles.modalItemSelected]}
+                  onPress={() => { onSelect(item); onClose(); }}
+                >
+                  <Text style={[styles.modalItemText, item.id === selectedId && styles.modalItemTextSelected]}>
+                    {item.name}
+                  </Text>
+                  {item.id === selectedId && (
+                    <Ionicons name="checkmark" size={18} color={Colors.orange} />
+                  )}
+                </TouchableOpacity>
+              )}
+              ItemSeparatorComponent={() => <View style={styles.modalSeparator} />}
+            />
+          )}
         </View>
       </View>
     </Modal>
   );
 }
 
+const FIELD_ORDER: (keyof FieldErrors)[] = [
+  'fullName',
+  'alias',
+  'phone',
+  'address',
+  'stateId',
+  'cityId',
+  'zipCode',
+  'make',
+  'model',
+  'year',
+  'rigDescription',
+  'aboutMe',
+];
+
+const FIELD_SECTION_MAP: Record<string, 'personal' | 'address' | 'vehicle' | 'about'> = {
+  fullName: 'personal',
+  alias: 'personal',
+  phone: 'personal',
+  address: 'address',
+  stateId: 'address',
+  cityId: 'address',
+  zipCode: 'address',
+  make: 'vehicle',
+  model: 'vehicle',
+  year: 'vehicle',
+  rigDescription: 'vehicle',
+  aboutMe: 'about',
+};
+
 export default function EditProfileScreen({ navigation }: Props) {
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const sectionOffsets = useRef<Record<string, number>>({});
+  const fieldOffsets = useRef<Record<string, number>>({});
+
+  const { refreshProfile } = useProfileContext();
+
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [backgroundUri, setBackgroundUri] = useState<string | null>(null);
   const [email, setEmail] = useState('');
@@ -171,6 +263,7 @@ export default function EditProfileScreen({ navigation }: Props) {
   const [states, setStates] = useState<StateItem[]>([]);
   const [cities, setCities] = useState<CityItem[]>([]);
   const [vehicleTypes, setVehicleTypes] = useState<VehicleTypeItem[]>([]);
+  const [statesLoading, setStatesLoading] = useState(false);
   const [citiesLoading, setCitiesLoading] = useState(false);
 
   // Modal visibility
@@ -178,24 +271,124 @@ export default function EditProfileScreen({ navigation }: Props) {
   const [cityModalOpen, setCityModalOpen] = useState(false);
   const [vehicleModalOpen, setVehicleModalOpen] = useState(false);
 
+  const fetchStates = useCallback(async () => {
+    setStatesLoading(true);
+    let loaded: StateItem[] = [];
+
+    try {
+      // 1. Check cache first so UI responds immediately
+      const cached = await AsyncStorage.getItem('ortq:cached_states');
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            loaded = parsed;
+            setStates(parsed);
+          }
+        } catch {}
+      }
+
+      // 2. Query both RPC and table in parallel for fastest response
+      const [rpcRes, tableRes] = await Promise.all([
+        (async () => {
+          try { return await supabase.rpc('get_all_variants_about_trails'); }
+          catch { return null; }
+        })(),
+        (async () => {
+          try { return await supabase.from('states').select('id, name').order('name'); }
+          catch { return null; }
+        })(),
+      ]);
+
+      if (rpcRes?.data?.states && Array.isArray(rpcRes.data.states) && rpcRes.data.states.length > 0) {
+        loaded = rpcRes.data.states;
+      } else if (tableRes?.data && Array.isArray(tableRes.data) && tableRes.data.length > 0) {
+        loaded = tableRes.data;
+      }
+
+      if (rpcRes?.data?.vehicle_types && Array.isArray(rpcRes.data.vehicle_types) && rpcRes.data.vehicle_types.length > 0) {
+        setVehicleTypes(rpcRes.data.vehicle_types);
+      }
+
+      if (loaded.length > 0) {
+        setStates(loaded);
+        AsyncStorage.setItem('ortq:cached_states', JSON.stringify(loaded)).catch(() => {});
+      }
+    } catch (e) {
+      console.warn('[EditProfileScreen] fetchStates error:', e);
+    } finally {
+      setStatesLoading(false);
+    }
+    return loaded;
+  }, []);
+
   useEffect(() => {
-    const load = async () => {
-      const { data: authData } = await supabase.auth.getUser();
-      const user = authData.user;
+    // Fast cache load on mount
+    AsyncStorage.getItem('ortq:cached_states').then(raw => {
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setStates(parsed);
+          }
+        } catch {}
+      }
+    }).catch(() => {});
+    fetchStates();
+  }, [fetchStates]);
+
+  const load = useCallback(async () => {
+    try {
+      const { data: authData } = await supabase.auth.getSession();
+      const user = authData.session?.user ?? (await supabase.auth.getUser()).data.user;
       if (!user) { setLoading(false); return; }
 
       setEmail(user.email ?? '');
 
-      // Load picker options in parallel with profile — use same RPC as web
-      const [variantsResult, profileData] = await Promise.all([
-        supabase.rpc('get_all_variants_about_trails'),
-        getProfile(user.id).catch(() => null),
-      ]);
+      let loadedStates: StateItem[] = [];
+      let loadedVehicleTypes: VehicleTypeItem[] = [];
+      let profileData: any = null;
 
-      console.log('[EditProfile] variants RPC:', JSON.stringify(variantsResult));
-      if (variantsResult.data) {
-        setStates(variantsResult.data.states ?? []);
-        setVehicleTypes(variantsResult.data.vehicle_types ?? []);
+      try {
+        const [variantsResult, profileResult, directStates] = await Promise.all([
+          (async () => {
+            try {
+              return await supabase.rpc('get_all_variants_about_trails');
+            } catch {
+              return { data: null, error: null };
+            }
+          })(),
+          getProfile(user.id).catch(err => {
+            console.error('[EditProfileScreen] getProfile error:', err);
+            return null;
+          }),
+          (async () => {
+            try {
+              const res = await supabase.from('states').select('id, name').order('name');
+              return res.data;
+            } catch {
+              return null;
+            }
+          })(),
+        ]);
+
+        if (directStates && directStates.length > 0) {
+          loadedStates = directStates;
+        } else if (variantsResult?.data?.states) {
+          loadedStates = variantsResult.data.states;
+        }
+
+        if (variantsResult?.data?.vehicle_types) {
+          loadedVehicleTypes = variantsResult.data.vehicle_types;
+        }
+        profileData = profileResult;
+      } catch (err) {
+        console.warn('[EditProfileScreen] parallel load error:', err);
+      }
+
+      setStates(loadedStates);
+      if (loadedVehicleTypes.length > 0) {
+        setVehicleTypes(loadedVehicleTypes);
       }
 
       if (profileData) {
@@ -210,6 +403,7 @@ export default function EditProfileScreen({ navigation }: Props) {
         setYear(profileData.year ?? '');
         setRigDescription(profileData.rig_description ?? '');
         setAboutMe(profileData.about_me ?? '');
+
         const avatarFile = profileData.profile_image_url;
         setAvatarUri(avatarFile
           ? avatarFile.startsWith('http') ? avatarFile : getStorageUrl('user_avatars', avatarFile)
@@ -219,42 +413,236 @@ export default function EditProfileScreen({ navigation }: Props) {
           ? bgFile.startsWith('http') ? bgFile : getStorageUrl('user_backgrounds', bgFile)
           : null);
 
-        if (profileData.state?.id) {
-          setStateId(profileData.state.id);
-          setStateName(profileData.state.name ?? '');
+        const targetStateId =
+          typeof profileData.state === 'object' && profileData.state?.id
+            ? profileData.state.id
+            : typeof profileData.state === 'string'
+            ? profileData.state
+            : (profileData as any).state_id ?? (profileData as any).state;
 
-          // Load cities for the saved state
-          const { data: cityRows } = await supabase.rpc('get_all_cities_by_state', {
-            state_id_arg: profileData.state.id,
-          });
-          if (cityRows) setCities(cityRows);
+        if (targetStateId) {
+          setStateId(targetStateId);
+          let sName =
+            typeof profileData.state === 'object' && profileData.state?.name
+              ? profileData.state.name
+              : '';
+
+          if (!sName) {
+            const matchedState = loadedStates.find(s => s.id === targetStateId);
+            if (matchedState?.name) {
+              sName = matchedState.name;
+            } else {
+              try {
+                const { data: stRow } = await supabase
+                  .from('states')
+                  .select('name')
+                  .eq('id', targetStateId)
+                  .single();
+                if (stRow?.name) sName = stRow.name;
+              } catch {}
+            }
+          }
+          setStateName(sName);
+
+          let cityRows: CityItem[] = [];
+          try {
+            const { data } = await supabase.rpc('get_all_cities_by_state', {
+              state_id_arg: targetStateId,
+            });
+            if (data && data.length > 0) {
+              cityRows = data;
+            }
+          } catch {}
+
+          if (cityRows.length === 0) {
+            try {
+              const { data: dbCities } = await supabase
+                .from('cities')
+                .select('id, name, latitude, longitude')
+                .eq('state_id', targetStateId)
+                .order('name');
+              if (dbCities) cityRows = dbCities;
+            } catch {}
+          }
+
+          if (cityRows.length > 0) {
+            setCities(cityRows);
+            const targetCityId =
+              typeof profileData.city === 'object' && profileData.city?.id
+                ? profileData.city.id
+                : typeof profileData.city === 'string'
+                ? profileData.city
+                : (profileData as any).city_id ?? (profileData as any).city;
+
+            if (targetCityId) {
+              setCityId(targetCityId);
+              let cName =
+                typeof profileData.city === 'object' && profileData.city?.name
+                  ? profileData.city.name
+                  : '';
+              const matchedCity = cityRows.find(c => c.id === targetCityId);
+              if (matchedCity) {
+                cName = cName || matchedCity.name;
+                setCityLat(matchedCity.latitude ?? null);
+                setCityLon(matchedCity.longitude ?? null);
+              } else if (!cName) {
+                try {
+                  const { data: cRow } = await supabase
+                    .from('cities')
+                    .select('name, latitude, longitude')
+                    .eq('id', targetCityId)
+                    .single();
+                  if (cRow) {
+                    cName = cRow.name;
+                    setCityLat(cRow.latitude ?? null);
+                    setCityLon(cRow.longitude ?? null);
+                  }
+                } catch {}
+              }
+              setCityName(cName);
+            }
+          }
         }
 
-        if (profileData.city?.id) {
-          setCityId(profileData.city.id);
-          setCityName(profileData.city.name ?? '');
-        }
-        setCityLat(profileData.latitude ?? null);
-        setCityLon(profileData.longitude ?? null);
+        if (profileData.latitude) setCityLat(profileData.latitude);
+        if (profileData.longitude) setCityLon(profileData.longitude);
       }
-
+    } catch (e) {
+      console.error('[EditProfileScreen] load exception:', e);
+    } finally {
       setLoading(false);
-    };
-
-    load();
+    }
   }, []);
 
-  const loadCitiesForState = async (id: string) => {
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
+
+  const loadCitiesForState = useCallback(async (id: string) => {
+    if (!id) return;
     setCitiesLoading(true);
     setCities([]);
     setCityId('');
     setCityName('');
     setCityLat(null);
     setCityLon(null);
-    const { data } = await supabase.rpc('get_all_cities_by_state', { state_id_arg: id });
-    if (data) setCities(data);
-    setCitiesLoading(false);
+
+    let cityRows: CityItem[] = [];
+
+    // 1. Check cache first
+    try {
+      const cached = await AsyncStorage.getItem(`ortq:cached_cities_${id}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          cityRows = parsed;
+          setCities(parsed);
+        }
+      }
+    } catch {}
+
+    // 2. Fetch in parallel
+    try {
+      const [rpcRes, dbRes] = await Promise.all([
+        (async () => {
+          try { return await supabase.rpc('get_all_cities_by_state', { state_id_arg: id }); }
+          catch { return null; }
+        })(),
+        (async () => {
+          try { return await supabase.from('cities').select('id, name, latitude, longitude').eq('state_id', id).order('name'); }
+          catch { return null; }
+        })(),
+      ]);
+
+      if (rpcRes?.data && Array.isArray(rpcRes.data) && rpcRes.data.length > 0) {
+        cityRows = rpcRes.data;
+      } else if (dbRes?.data && Array.isArray(dbRes.data) && dbRes.data.length > 0) {
+        cityRows = dbRes.data;
+      }
+
+      if (cityRows.length > 0) {
+        setCities(cityRows);
+        AsyncStorage.setItem(`ortq:cached_cities_${id}`, JSON.stringify(cityRows)).catch(() => {});
+      }
+    } catch (e) {
+      console.warn('[EditProfileScreen] loadCitiesForState error:', e);
+    } finally {
+      setCitiesLoading(false);
+    }
+  }, []);
+
+  const handleOpenStatePicker = () => {
+    setStateModalOpen(true);
+    if (states.length === 0) {
+      fetchStates();
+    }
   };
+
+  const handleOpenCityPicker = () => {
+    if (!stateId) {
+      Alert.alert('Select State First', 'Please select your state before choosing a city.');
+      return;
+    }
+    setCityModalOpen(true);
+    if (cities.length === 0 && !citiesLoading) {
+      loadCitiesForState(stateId);
+    }
+  };
+
+  const handleBack = useCallback(() => {
+    const isComplete =
+      fullName.trim() !== '' &&
+      alias.trim() !== '' &&
+      address.trim() !== '' &&
+      stateId !== '' &&
+      cityId !== '';
+
+    if (!isComplete) {
+      Alert.alert(
+        'Profile Incomplete',
+        'You must complete your profile (Full Name, Alias, Address, State, and City) to explore trails and access all features.',
+        [
+          { text: 'Keep Editing', style: 'cancel' },
+          {
+            text: 'Sign Out',
+            style: 'destructive',
+            onPress: async () => {
+              await supabase.auth.signOut();
+            },
+          },
+        ],
+      );
+      return;
+    }
+
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      (navigation as any).navigate('Explorer');
+    }
+  }, [fullName, alias, address, stateId, cityId, navigation]);
+
+  useEffect(() => {
+    const onBackPress = () => {
+      const isComplete =
+        fullName.trim() !== '' &&
+        alias.trim() !== '' &&
+        address.trim() !== '' &&
+        stateId !== '' &&
+        cityId !== '';
+
+      if (!isComplete) {
+        handleBack();
+        return true; // prevent navigating back to Explorer
+      }
+      return false;
+    };
+
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [fullName, alias, address, stateId, cityId, handleBack]);
 
   const openImagePicker = (type: 'avatar' | 'background') => {
     const options = { mediaType: 'photo' as const, quality: 0.8 as const };
@@ -394,36 +782,35 @@ export default function EditProfileScreen({ navigation }: Props) {
 
     if (Object.keys(fieldErrors).length > 0) {
       setErrors(fieldErrors);
-      // Build a human-readable list of missing fields for the alert
-      const missingLabels: string[] = [];
-      if (fieldErrors.fullName) missingLabels.push('Full Name');
-      if (fieldErrors.alias) missingLabels.push('Alias / Username');
-      if (fieldErrors.address) missingLabels.push('Address Line');
-      if (fieldErrors.stateId) missingLabels.push('State');
-      if (fieldErrors.cityId) missingLabels.push('City');
-      if (fieldErrors.phone) missingLabels.push('Phone');
-      if (fieldErrors.zipCode) missingLabels.push('Zip Code');
-      if (fieldErrors.year) missingLabels.push('Year');
 
-      scrollRef.current?.scrollTo({ y: 0, animated: true });
-      Alert.alert(
-        'Required Fields Missing',
-        missingLabels.length > 0
-          ? `Please fill in the following fields:\n\n• ${missingLabels.join('\n• ')}`
-          : 'Please fix the highlighted errors before saving.',
-      );
+      const firstErrorField = FIELD_ORDER.find(f => fieldErrors[f]);
+      if (firstErrorField) {
+        const sec = FIELD_SECTION_MAP[firstErrorField];
+        const secY = (sec && sectionOffsets.current[sec]) || 0;
+        const fieldY = fieldOffsets.current[firstErrorField] || 0;
+        const totalY = secY + fieldY;
+        scrollViewRef.current?.scrollTo({
+          y: Math.max(0, totalY - 24),
+          animated: true,
+        });
+      }
       return;
     }
 
-    if (!cityLat || !cityLon) {
-      Alert.alert('Error', 'Unable to determine coordinates for the selected city.');
-      return;
+    let latToSave = cityLat;
+    let lonToSave = cityLon;
+    if (!latToSave || !lonToSave) {
+      const matched = cities.find(c => c.id === cityId);
+      if (matched?.latitude && matched?.longitude) {
+        latToSave = matched.latitude;
+        lonToSave = matched.longitude;
+      }
     }
 
     setSaving(true);
 
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
+    const { data: authData } = await supabase.auth.getSession();
+    const userId = authData.session?.user?.id ?? (await supabase.auth.getUser()).data.user?.id;
     if (!userId) { setSaving(false); return; }
 
     let avatarUrl: string | undefined;
@@ -465,11 +852,16 @@ export default function EditProfileScreen({ navigation }: Props) {
         about_me: aboutMe || undefined,
         profile_image_url: avatarUrl,
         background_image_url: backgroundUrl,
-        latitude: cityLat,
-        longitude: cityLon,
+        latitude: latToSave,
+        longitude: lonToSave,
       });
 
       await supabase.auth.updateUser({ data: { full_name: fullName } });
+
+      // refreshProfile() fetches the full joined profile, saves it to cache,
+      // and updates the shared ProfileContext so AppNavigator immediately flips
+      // isComplete → true and stops redirecting to EditProfile.
+      await refreshProfile();
 
       navigation.goBack();
     } catch (err) {
@@ -496,13 +888,13 @@ export default function EditProfileScreen({ navigation }: Props) {
         style={{ flex: 1 }}
       >
         <ScrollView
-          ref={scrollRef}
+          ref={scrollViewRef}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
           {/* Header: back button + save button */}
           <View style={styles.headerRow}>
-            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} disabled={saving}>
+            <TouchableOpacity style={styles.backButton} onPress={handleBack} disabled={saving}>
               <Ionicons name="chevron-back" size={24} color={Colors.blueGrey} />
             </TouchableOpacity>
 
@@ -561,24 +953,28 @@ export default function EditProfileScreen({ navigation }: Props) {
           {/* ── Personal Information ── */}
           <SectionHeader title="Personal Information" />
 
-          <View style={styles.fieldGroup}>
-            <CustomInput
-              label="Full Name *"
-              placeholder="Enter your full name"
-              value={fullName}
-              onChangeText={text => { setFullName(text); clearError('fullName'); }}
-              editable={!saving}
-              error={errors.fullName}
-            />
-            <CustomInput
-              label="Alias (Public Username) *"
-              placeholder="Your trail name or nickname"
-              value={alias}
-              onChangeText={text => { setAlias(text); clearError('alias'); }}
-              editable={!saving}
-              error={errors.alias}
-            />
-            <View>
+          <View style={styles.fieldGroup} onLayout={e => { sectionOffsets.current.personal = e.nativeEvent.layout.y; }}>
+            <View onLayout={e => { fieldOffsets.current.fullName = e.nativeEvent.layout.y; }}>
+              <CustomInput
+                label="Full Name *"
+                placeholder="Enter your full name"
+                value={fullName}
+                onChangeText={text => { setFullName(text); clearError('fullName'); }}
+                editable={!saving}
+                error={errors.fullName}
+              />
+            </View>
+            <View onLayout={e => { fieldOffsets.current.alias = e.nativeEvent.layout.y; }}>
+              <CustomInput
+                label="Alias (Public Username) *"
+                placeholder="Your trail name or nickname"
+                value={alias}
+                onChangeText={text => { setAlias(text); clearError('alias'); }}
+                editable={!saving}
+                error={errors.alias}
+              />
+            </View>
+            <View onLayout={e => { fieldOffsets.current.phone = e.nativeEvent.layout.y; }}>
               <Text style={styles.inputLabel}>Phone (optional)</Text>
               <MaskInput
                 style={[styles.maskedInput, !!errors.phone && styles.maskedInputError]}
@@ -597,49 +993,57 @@ export default function EditProfileScreen({ navigation }: Props) {
           {/* ── Address ── */}
           <SectionHeader title="Address" />
 
-          <View style={styles.fieldGroup}>
-            <CustomInput
-              label="Address Line *"
-              placeholder="123 Trail Rd"
-              value={address}
-              onChangeText={text => { setAddress(text); clearError('address'); }}
-              editable={!saving}
-              error={errors.address}
-            />
+          <View style={styles.fieldGroup} onLayout={e => { sectionOffsets.current.address = e.nativeEvent.layout.y; }}>
+            <View onLayout={e => { fieldOffsets.current.address = e.nativeEvent.layout.y; }}>
+              <CustomInput
+                label="Address Line *"
+                placeholder="123 Trail Rd"
+                value={address}
+                onChangeText={text => { setAddress(text); clearError('address'); }}
+                editable={!saving}
+                error={errors.address}
+              />
+            </View>
 
-            <PickerRow
-              label="State *"
-              value={stateName}
-              placeholder="Select state"
-              onPress={() => setStateModalOpen(true)}
-              disabled={saving}
-              error={errors.stateId}
-            />
+            <View onLayout={e => { fieldOffsets.current.stateId = e.nativeEvent.layout.y; }}>
+              <PickerRow
+                label="State *"
+                value={stateName}
+                placeholder={statesLoading ? 'Loading states…' : 'Select state'}
+                onPress={handleOpenStatePicker}
+                disabled={saving}
+                error={errors.stateId}
+              />
+            </View>
 
-            <PickerRow
-              label="City *"
-              value={cityName}
-              placeholder={!stateId ? 'Select state first' : citiesLoading ? 'Loading cities…' : 'Select city'}
-              onPress={() => { if (stateId && !citiesLoading) setCityModalOpen(true); }}
-              disabled={saving || !stateId || citiesLoading}
-              error={errors.cityId}
-            />
+            <View onLayout={e => { fieldOffsets.current.cityId = e.nativeEvent.layout.y; }}>
+              <PickerRow
+                label="City *"
+                value={cityName}
+                placeholder={!stateId ? 'Select state first' : citiesLoading ? 'Loading cities…' : 'Select city'}
+                onPress={handleOpenCityPicker}
+                disabled={saving || !stateId}
+                error={errors.cityId}
+              />
+            </View>
 
-            <CustomInput
-              label="Zip Code (optional)"
-              placeholder="e.g. 90210"
-              value={zipCode}
-              onChangeText={text => { setZipCode(text); clearError('zipCode'); }}
-              editable={!saving}
-              error={errors.zipCode}
-              keyboardType="numeric"
-            />
+            <View onLayout={e => { fieldOffsets.current.zipCode = e.nativeEvent.layout.y; }}>
+              <CustomInput
+                label="Zip Code (optional)"
+                placeholder="e.g. 90210"
+                value={zipCode}
+                onChangeText={text => { setZipCode(text); clearError('zipCode'); }}
+                editable={!saving}
+                error={errors.zipCode}
+                keyboardType="numeric"
+              />
+            </View>
           </View>
 
           {/* ── Vehicle Information ── */}
           <SectionHeader title="Vehicle Information" />
 
-          <View style={styles.fieldGroup}>
+          <View style={styles.fieldGroup} onLayout={e => { sectionOffsets.current.vehicle = e.nativeEvent.layout.y; }}>
             <PickerRow
               label="Vehicle Type (optional)"
               value={vehicleType}
@@ -647,34 +1051,40 @@ export default function EditProfileScreen({ navigation }: Props) {
               onPress={() => setVehicleModalOpen(true)}
               disabled={saving}
             />
-            <CustomInput
-              label="Make (optional)"
-              placeholder="e.g. Ford, Toyota, Jeep"
-              value={make}
-              onChangeText={text => { setMake(text); clearError('make'); }}
-              editable={!saving}
-              error={errors.make}
-            />
-            <CustomInput
-              label="Model (optional)"
-              placeholder="e.g. Bronco, 4Runner, Wrangler"
-              value={model}
-              onChangeText={text => { setModel(text); clearError('model'); }}
-              editable={!saving}
-              error={errors.model}
-            />
-            <CustomInput
-              label="Year (optional)"
-              placeholder="e.g. 2022"
-              value={year}
-              onChangeText={text => { setYear(text); clearError('year'); }}
-              editable={!saving}
-              error={errors.year}
-              keyboardType="numeric"
-              maxLength={4}
-            />
+            <View onLayout={e => { fieldOffsets.current.make = e.nativeEvent.layout.y; }}>
+              <CustomInput
+                label="Make (optional)"
+                placeholder="e.g. Ford, Toyota, Jeep"
+                value={make}
+                onChangeText={text => { setMake(text); clearError('make'); }}
+                editable={!saving}
+                error={errors.make}
+              />
+            </View>
+            <View onLayout={e => { fieldOffsets.current.model = e.nativeEvent.layout.y; }}>
+              <CustomInput
+                label="Model (optional)"
+                placeholder="e.g. Bronco, 4Runner, Wrangler"
+                value={model}
+                onChangeText={text => { setModel(text); clearError('model'); }}
+                editable={!saving}
+                error={errors.model}
+              />
+            </View>
+            <View onLayout={e => { fieldOffsets.current.year = e.nativeEvent.layout.y; }}>
+              <CustomInput
+                label="Year (optional)"
+                placeholder="e.g. 2022"
+                value={year}
+                onChangeText={text => { setYear(text); clearError('year'); }}
+                editable={!saving}
+                error={errors.year}
+                keyboardType="numeric"
+                maxLength={4}
+              />
+            </View>
 
-            <View style={styles.textAreaWrap}>
+            <View onLayout={e => { fieldOffsets.current.rigDescription = e.nativeEvent.layout.y; }} style={styles.textAreaWrap}>
               <Text style={styles.textAreaLabel}>Rig Description (optional)</Text>
               <TextInput
                 style={[styles.textArea, !!errors.rigDescription && styles.textAreaError]}
@@ -696,8 +1106,8 @@ export default function EditProfileScreen({ navigation }: Props) {
           {/* ── About Me ── */}
           <SectionHeader title="About Me" />
 
-          <View style={styles.fieldGroup}>
-            <View style={styles.textAreaWrap}>
+          <View style={styles.fieldGroup} onLayout={e => { sectionOffsets.current.about = e.nativeEvent.layout.y; }}>
+            <View onLayout={e => { fieldOffsets.current.aboutMe = e.nativeEvent.layout.y; }} style={styles.textAreaWrap}>
               <Text style={styles.textAreaLabel}>Tell the community about yourself (optional)</Text>
               <TextInput
                 style={[styles.textArea, !!errors.aboutMe && styles.textAreaError]}
@@ -737,11 +1147,18 @@ export default function EditProfileScreen({ navigation }: Props) {
         title="Select State"
         items={states}
         selectedId={stateId}
+        loading={statesLoading}
+        onRetry={fetchStates}
         onSelect={item => {
-          setStateId(item.id);
+          const sid = String(item.id);
+          setStateId(sid);
           setStateName(item.name);
           clearError('stateId');
-          loadCitiesForState(item.id);
+          setCityId('');
+          setCityName('');
+          setCityLat(null);
+          setCityLon(null);
+          loadCitiesForState(sid);
         }}
         onClose={() => setStateModalOpen(false)}
       />
@@ -752,8 +1169,11 @@ export default function EditProfileScreen({ navigation }: Props) {
         title="Select City"
         items={cities}
         selectedId={cityId}
+        loading={citiesLoading}
+        onRetry={() => { if (stateId) loadCitiesForState(stateId); }}
         onSelect={item => {
-          setCityId(item.id);
+          const cid = String(item.id);
+          setCityId(cid);
           setCityName(item.name);
           setCityLat((item as CityItem).latitude ?? null);
           setCityLon((item as CityItem).longitude ?? null);
@@ -1011,4 +1431,51 @@ const styles = StyleSheet.create({
   modalItemText: { fontFamily: Fonts.firaSansRegular, fontSize: 15, color: Colors.blueGrey },
   modalItemTextSelected: { color: Colors.orange, fontFamily: Fonts.firaSansBold },
   modalSeparator: { height: 1, backgroundColor: '#F0F0F0' },
+  modalSearchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F3F5',
+    borderRadius: 10,
+    marginHorizontal: 16,
+    marginVertical: 10,
+    paddingHorizontal: 12,
+    height: 42,
+    gap: 8,
+  },
+  modalSearchInput: {
+    flex: 1,
+    fontFamily: Fonts.firaSansRegular,
+    fontSize: 14,
+    color: Colors.blueGrey,
+    paddingVertical: 0,
+  },
+  modalCenterContent: {
+    padding: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  modalLoadingText: {
+    fontFamily: Fonts.firaSansRegular,
+    fontSize: 14,
+    color: '#687076',
+  },
+  modalEmptyText: {
+    fontFamily: Fonts.firaSansRegular,
+    fontSize: 15,
+    color: '#687076',
+    textAlign: 'center',
+  },
+  modalRetryBtn: {
+    marginTop: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: Colors.orange,
+    borderRadius: 8,
+  },
+  modalRetryBtnText: {
+    fontFamily: Fonts.firaSansBold,
+    fontSize: 14,
+    color: '#fff',
+  },
 });

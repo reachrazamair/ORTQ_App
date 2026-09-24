@@ -67,7 +67,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
 
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(
       email,
-      { redirectTo: 'ortq://reset-password' },
+      { redirectTo: 'https://app.ortqusa.com/reset-password' },
     );
     setLoading(false);
 

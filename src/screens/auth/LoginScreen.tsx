@@ -19,7 +19,7 @@ import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { supabase } from '../../lib/supabase';
-import { getProfile } from '../../lib/profile';
+import { getProfile, isProfileComplete, saveProfileToCache } from '../../lib/profile';
 import { navigationRef } from '../../../App';
 import { loginSchema } from '../../utils/schemas';
 import CustomInput from '../../components/common/CustomInput';
@@ -96,17 +96,24 @@ export default function LoginScreen({ navigation }: Props) {
       return;
     }
 
+    await saveProfileToCache(profile);
+    const complete = isProfileComplete(profile);
+
     setLoading(false);
 
     if (navigationRef.isReady()) {
       setTimeout(() => {
         if (navigationRef.isReady()) {
-          // Switch to Explorer tab after successful login
-          navigationRef.navigate('Explorer');
+          if (!complete) {
+            (navigationRef as any).navigate('Profile', { screen: 'EditProfile' });
+          } else {
+            navigationRef.navigate('Explorer');
+          }
         }
       }, 100);
     }
   };
+
 
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
@@ -117,14 +124,37 @@ export default function LoginScreen({ navigation }: Props) {
         setGoogleLoading(false);
         return;
       }
+
+      const userProfile = await getProfile(session.user.id);
+
+      if (userProfile && userProfile.status !== 'active') {
+        await supabase.auth.signOut();
+        setGoogleLoading(false);
+        Alert.alert(
+          'Account Unavailable',
+          'Your account has been suspended or deleted. Please contact support.',
+        );
+        return;
+      }
+
+      if (userProfile) {
+        await saveProfileToCache(userProfile);
+      }
+      const complete = isProfileComplete(userProfile);
+
       setGoogleLoading(false);
       if (navigationRef.isReady()) {
         setTimeout(() => {
           if (navigationRef.isReady()) {
-            navigationRef.navigate('Explorer');
+            if (!complete) {
+              (navigationRef as any).navigate('Profile', { screen: 'EditProfile' });
+            } else {
+              navigationRef.navigate('Explorer');
+            }
           }
         }, 100);
       }
+
     } catch (err: any) {
       setGoogleLoading(false);
       if (isErrorWithCode(err)) {

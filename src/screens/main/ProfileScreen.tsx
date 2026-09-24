@@ -50,6 +50,8 @@ export default function ProfileScreen({ navigation }: Props) {
     handleSignOut,
   } = useProfile();
 
+
+
   const avatarInitial = displayName
     ? displayName.charAt(0).toUpperCase()
     : email.charAt(0).toUpperCase();

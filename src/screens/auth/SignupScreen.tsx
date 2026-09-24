@@ -19,6 +19,7 @@ import { Colors } from '../../theme/colors';
 import { Fonts } from '../../theme/fonts';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { supabase } from '../../lib/supabase';
+import { getProfile, isProfileComplete } from '../../lib/profile';
 import { signupSchema } from '../../utils/schemas';
 import CustomInput from '../../components/common/CustomInput';
 import { navigationRef } from '../../../App';
@@ -89,7 +90,7 @@ export default function SignupScreen({ navigation }: Props) {
     }
 
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data: signUpData, error } = await supabase.auth.signUp({
       email,
       password,
       options: { emailRedirectTo: 'ortq://verify' },
@@ -110,7 +111,17 @@ export default function SignupScreen({ navigation }: Props) {
     }
 
     setLoading(false);
-    navigation.popToTop();
+    if (signUpData?.session) {
+      if (navigationRef.isReady()) {
+        setTimeout(() => {
+          if (navigationRef.isReady()) {
+            (navigationRef as any).navigate('Profile', { screen: 'EditProfile' });
+          }
+        }, 100);
+      }
+    } else {
+      navigation.popToTop();
+    }
   };
 
   const handleGoogleLogin = async () => {
@@ -123,10 +134,15 @@ export default function SignupScreen({ navigation }: Props) {
         return;
       }
       setGoogleLoading(false);
+      const userProfile = await getProfile(session.user.id);
       if (navigationRef.isReady()) {
         setTimeout(() => {
           if (navigationRef.isReady()) {
-            navigationRef.navigate('Explorer');
+            if (!isProfileComplete(userProfile)) {
+              (navigationRef as any).navigate('Profile', { screen: 'EditProfile' });
+            } else {
+              navigationRef.navigate('Explorer');
+            }
           }
         }, 100);
       }

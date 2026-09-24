@@ -108,13 +108,27 @@ export async function saveProfileToCache(profile: UserProfile): Promise<void> {
  * Returns true if the user's profile has all the required fields filled in:
  * full name, alias/username, state, city, and address line.
  */
-export function isProfileComplete(profile: UserProfile | null): boolean {
+export function isProfileComplete(profile: UserProfile | null | any): boolean {
   if (!profile) return false;
+  const stateId =
+    typeof profile.state === 'object' && profile.state?.id
+      ? profile.state.id
+      : typeof profile.state === 'string'
+      ? profile.state
+      : profile.state_id;
+  const cityId =
+    typeof profile.city === 'object' && profile.city?.id
+      ? profile.city.id
+      : typeof profile.city === 'string'
+      ? profile.city
+      : profile.city_id;
+
   return !!(
     profile.full_name?.trim() &&
     profile.alias?.trim() &&
-    profile.state?.id &&
-    profile.city?.id &&
+    stateId &&
+    cityId &&
     profile.address?.trim()
   );
 }
+
